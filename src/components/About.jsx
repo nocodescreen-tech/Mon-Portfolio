@@ -60,7 +60,7 @@ export default function About() {
               <div className="sapeur-stripes absolute -right-5 -top-5 h-28 w-28 corner-cut-sm opacity-70" aria-hidden="true" />
               <div className="portrait-frame corner-cut overflow-hidden border border-brass/30 bg-ink-2">
                 <img
-                  src="/lumo/rene.jpg"
+                  src="/lumo/rene.png"
                   alt="Portrait de René Descartes"
                   className="w-full object-cover"
                   loading="lazy"
