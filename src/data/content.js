@@ -3,7 +3,7 @@ export const profile = {
   firstName: 'René',
   role: 'Développeur Web Full Stack',
   roles: ['Développeur Web Full Stack', 'UI/UX Designer', 'Technicien en Maintenance Informatique'],
-  location: 'Matadi, Kongo Central, République Démocratique du Congo',
+  location: 'Matadi, RDC',
   email: 'no.codescreen@gmail.com',
   phone: '+243 891 755 172',
   whatsapp: 'https://wa.me/243891755172',
@@ -133,7 +133,7 @@ export const timeline = [
 ]
 
 export const aboutParagraphs = [
-  "Je suis un développeur full stack basé à Matadi, au cœur du Kongo Central. Ce qui me guide ? Une conviction simple : une application bien pensée est une lumière dans le quotidien des gens — c'est l'esprit de LUMO, mon projet phare.",
+  "Je suis un développeur full stack basé à Matadi, en RDC. Ce qui me guide ? Construire des applications utiles, pensées pour les gens qui les utilisent — c'est l'esprit de LUMO, mon projet phare.",
   "Je conçois et développe des plateformes web complètes — du front-end React jusqu'à la base de données PostgreSQL — avec le même soin pour l'expérience utilisateur que pour l'architecture du code.",
   "Formé à l'ISIPA Matadi, technicien en maintenance informatique et passionné de réseaux, j'apporte une vision systémique : je comprends la machine, le réseau, le code et l'utilisateur. Plus d'un an de pratique sur des projets personnels m'a appris à livrer, itérer et me remettre en question.",
 ]

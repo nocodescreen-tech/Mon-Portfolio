@@ -118,7 +118,7 @@ export default function Hero() {
             className="mb-6 inline-flex items-center gap-2 rounded-full border border-brass/25 bg-ink-2/70 px-4 py-1.5 font-mono text-[11px] md:text-xs tracking-widest uppercase text-brass"
           >
             <i className="fa-solid fa-location-dot text-[11px]" aria-hidden="true" />
-            Matadi · Kongo Central · RDC
+            Matadi, RDC
           </motion.p>
 
           <motion.h1
@@ -147,9 +147,9 @@ export default function Hero() {
             transition={{ duration: 0.7, delay: 0.7, ease }}
             className="mt-6 max-w-xl text-fog text-base md:text-lg leading-relaxed"
           >
-            Je conçois des applications web complètes — du code à l'interface — avec la
-            conviction qu'une application bien pensée est une <em className="not-italic text-brass-soft">lumière</em>{' '}
-            dans le quotidien de ceux qui l'utilisent.
+            Je conçois des applications web complètes, de l'interface jusqu'à la base de données.
+            Ma priorité : des outils simples, solides et agréables à utiliser — qui rendent vraiment
+            service à ceux qui les utilisent au quotidien.
           </motion.p>
 
           <motion.div
