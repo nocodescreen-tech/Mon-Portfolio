@@ -3,6 +3,8 @@ import { Section, Reveal, Magnetic } from './ui'
 import ContactForm from './ContactForm'
 
 export default function Contact() {
+  const waUrl = `${profile.whatsapp}?text=${encodeURIComponent(profile.whatsappMsg)}`
+
   const channels = [
     {
       icon: 'fa-solid fa-envelope',
@@ -22,7 +24,7 @@ export default function Contact() {
       icon: 'fa-brands fa-whatsapp',
       label: 'WhatsApp',
       value: profile.phone,
-      href: profile.whatsapp,
+      href: waUrl,
       note: 'Le plus rapide',
     },
     {
@@ -81,6 +83,34 @@ export default function Contact() {
               <i className="fa-solid fa-location-dot text-brass" aria-hidden="true" />
               {profile.location}
             </div>
+          </Reveal>
+
+          {/* CTA WhatsApp — message pré-rempli */}
+          <Reveal delay={0.38}>
+            <Magnetic strength={0.12}>
+              <a
+                href={waUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="group corner-cut relative mt-4 block overflow-hidden border border-[#25D366]/40 bg-[#25D366]/10 p-6 transition-all hover:border-[#25D366] hover:bg-[#25D366]/15 hover:shadow-[0_16px_50px_-20px_rgba(37,211,102,0.5)]"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <span className="grid h-12 w-12 shrink-0 place-items-center corner-cut-sm bg-[#25D366] text-ink transition-transform group-hover:scale-105">
+                      <i className="fa-brands fa-whatsapp text-xl" aria-hidden="true" />
+                    </span>
+                    <div>
+                      <div className="font-display text-lg text-mist">Discuter sur WhatsApp</div>
+                      <div className="font-mono text-[11px] text-[#25D366]">Message pré-rempli — un clic suffit</div>
+                    </div>
+                  </div>
+                  <i className="fa-solid fa-arrow-right text-[#25D366] transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                </div>
+                <div className="mt-4 rounded-sm border border-[#25D366]/20 bg-ink/60 px-4 py-3 font-mono text-[12px] leading-relaxed text-fog">
+                  <span className="text-[#25D366]">«</span> {profile.whatsappMsg} <span className="text-[#25D366]">»</span>
+                </div>
+              </a>
+            </Magnetic>
           </Reveal>
         </div>
 

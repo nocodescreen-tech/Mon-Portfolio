@@ -7,6 +7,8 @@ export const profile = {
   email: 'no.codescreen@gmail.com',
   phone: '+243 891 755 172',
   whatsapp: 'https://wa.me/243891755172',
+  whatsappMsg:
+    "Bonjour René 👋 Je vous contacte depuis votre portfolio. Je suis intéressé(e) par vos services et j'aimerais en discuter.",
   cvUrl: '/cv/Rene-Descartes-CV.pdf',
   lumoRepo: 'https://github.com/nocodescreen-tech/LUMO',
   lumoLive: 'https://lumo-frontend-production-1dba.up.railway.app/',

@@ -214,6 +214,17 @@ export default function Hero() {
             ))}
             <Magnetic strength={0.35}>
               <a
+                href={`${profile.whatsapp}?text=${encodeURIComponent(profile.whatsappMsg)}`}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="WhatsApp"
+                className="grid h-10 w-10 sm:h-11 sm:w-11 place-items-center corner-cut-sm bg-ink-2 ring-1 ring-[#25D366]/40 text-[#25D366] transition-all hover:ring-[#25D366] hover:shadow-[0_0_20px_rgba(37,211,102,0.3)]"
+              >
+                <i className="fa-brands fa-whatsapp text-[14px] sm:text-[15px]" aria-hidden="true" />
+              </a>
+            </Magnetic>
+            <Magnetic strength={0.35}>
+              <a
                 href={`mailto:${profile.email}`}
                 aria-label="Email"
                 className="grid h-10 w-10 sm:h-11 sm:w-11 place-items-center corner-cut-sm bg-ink-2 ring-1 ring-brass/20 text-fog transition-all hover:text-brass hover:ring-brass/60"
