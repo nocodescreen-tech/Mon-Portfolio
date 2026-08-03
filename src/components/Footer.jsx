@@ -12,11 +12,6 @@ export default function Footer() {
           </div>
         </div>
 
-        <p className="flex items-center gap-1.5 text-center font-mono text-[12px] text-fog">
-          Conçu avec <i className="fa-solid fa-heart text-brass" aria-hidden="true" /> et méthode à Matadi —{' '}
-          {new Date().getFullYear()}
-        </p>
-
         <a
           href="#top"
           className="corner-cut-sm inline-flex items-center gap-2 border border-brass/25 px-4 py-2.5 font-mono text-[12px] text-brass transition-all hover:bg-brass hover:text-ink"

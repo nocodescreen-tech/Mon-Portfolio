@@ -35,7 +35,8 @@ export default function ContactForm() {
 
   const onSubmit = async (e) => {
     e.preventDefault()
-    const fd = new FormData(e.currentTarget)
+    const formEl = e.currentTarget
+    const fd = new FormData(formEl)
 
     // Honeypot : un bot remplit ce champ caché
     if (fd.get('website')) return
@@ -67,7 +68,7 @@ export default function ContactForm() {
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setStatus(STATUS.success)
-      e.currentTarget.reset()
+      formEl.reset()
       setMessage('Message envoyé ! Je reviens vers vous très vite. ✨')
     } catch (err) {
       // Repli : l'API n'est pas déployée ici (dev local) → mailto pré-rempli
