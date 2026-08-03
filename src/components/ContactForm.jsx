@@ -60,6 +60,11 @@ export default function ContactForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
+      if (res.status === 429) {
+        setStatus(STATUS.error)
+        setMessage('Trop de messages envoyés récemment. Réessayez dans quelques minutes.')
+        return
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setStatus(STATUS.success)
       e.currentTarget.reset()
@@ -70,7 +75,7 @@ export default function ContactForm() {
       const body = encodeURIComponent(`Nom : ${payload.nom}\nEmail : ${payload.email}\n\n${payload.message}`)
       window.location.href = `mailto:${profile.email}?subject=${subject}&body=${body}`
       setStatus(STATUS.success)
-      setMessage("Votre messagerie s'ouvre avec le message pré-rempli — il ne reste qu'à l'envoyer. Sur la version en ligne du site, l'envoi est automatique.")
+      setMessage("Votre messagerie s'ouvre avec le message pré-rempli — il ne reste qu'à l'envoyer.")
     }
   }
 

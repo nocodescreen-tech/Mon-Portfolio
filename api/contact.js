@@ -18,9 +18,10 @@ import nodemailer from 'nodemailer'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
-// Limitation de débit simple : 5 envois / 10 min / IP
+// Limitation de débit : 10 envois / 10 min / IP (comptés APRÈS le filtre
+// honeypot — les bots n'épuisent pas le quota des visiteurs légitimes)
 const WINDOW_MS = 10 * 60 * 1000
-const MAX_PER_WINDOW = 5
+const MAX_PER_WINDOW = 10
 const hits = new Map()
 
 function rateLimited(ip) {
@@ -47,10 +48,6 @@ export default async function handler(req, res) {
     req.socket?.remoteAddress ||
     'inconnu'
 
-  if (rateLimited(ip)) {
-    return res.status(429).json({ ok: false, error: 'Trop de messages. Réessayez dans quelques minutes.' })
-  }
-
   let body
   try {
     body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {}
@@ -58,15 +55,19 @@ export default async function handler(req, res) {
     return res.status(400).json({ ok: false, error: 'JSON invalide.' })
   }
 
+  // Honeypot : les bots remplissent ce champ — ignorés sans compter dans le quota
+  if (body.website) {
+    return res.status(200).json({ ok: true }) // silencieux pour ne pas éduquer le bot
+  }
+
+  if (rateLimited(ip)) {
+    return res.status(429).json({ ok: false, error: 'Trop de messages. Réessayez dans quelques minutes.' })
+  }
+
   const nom = String(body.nom || '').trim().slice(0, 120)
   const email = String(body.email || '').trim().slice(0, 200)
   const sujet = String(body.sujet || '').trim().slice(0, 200) || 'Nouveau projet'
   const message = String(body.message || '').trim().slice(0, 5000)
-
-  // Honeypot : les bots remplissent ce champ
-  if (body.website) {
-    return res.status(200).json({ ok: true }) // silencieux pour ne pas éduquer le bot
-  }
 
   // Validation serveur
   if (nom.length < 2) return res.status(400).json({ ok: false, error: 'Nom invalide.' })
