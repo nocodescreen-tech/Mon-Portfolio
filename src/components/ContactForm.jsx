@@ -70,7 +70,7 @@ export default function ContactForm() {
       const body = encodeURIComponent(`Nom : ${payload.nom}\nEmail : ${payload.email}\n\n${payload.message}`)
       window.location.href = `mailto:${profile.email}?subject=${subject}&body=${body}`
       setStatus(STATUS.success)
-      setMessage('Ouverture de votre messagerie — le message y est pré-rempli. (L’API d’envoi n’est pas déployée en local.)')
+      setMessage("Votre messagerie s'ouvre avec le message pré-rempli — il ne reste qu'à l'envoyer. Sur la version en ligne du site, l'envoi est automatique.")
     }
   }
 
