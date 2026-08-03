@@ -53,7 +53,7 @@ export default function Contact() {
       kicker="Disponible pour des projets freelance, des collaborations et des opportunités full stack — sur place à Matadi ou à distance."
     >
       <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {channels.map(({ icon, label, value, href, note }, i) => (
             <Reveal key={label} delay={i * 0.08}>
               <Magnetic strength={0.15}>

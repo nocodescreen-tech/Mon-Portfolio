@@ -23,9 +23,9 @@ export default function About() {
       kicker="Développeur, designer et technicien : je comprends la machine, le réseau, le code et l'utilisateur."
     >
       <div className="grid gap-14 lg:grid-cols-[1.1fr_0.9fr] lg:gap-20">
-        <div>
+        <div className="min-w-0">
           <div className="relative">
-            <div className="sapeur-stripes absolute -left-6 -top-6 h-24 w-24 corner-cut-sm opacity-60" aria-hidden="true" />
+            <div className="sapeur-stripes absolute -left-6 -top-6 h-24 w-24 corner-cut-sm opacity-60 max-sm:hidden" aria-hidden="true" />
             <div className="space-y-6 text-[15px] md:text-base leading-relaxed text-mist/85">
               {aboutParagraphs.map((p, i) => (
                 <Reveal key={i} delay={i * 0.1}>
@@ -53,14 +53,14 @@ export default function About() {
           </Reveal>
         </div>
 
-        <div>
+        <div className="min-w-0">
           {/* portrait réel */}
           <Reveal delay={0.05}>
             <div className="relative mb-8 max-w-sm">
-              <div className="sapeur-stripes absolute -right-5 -top-5 h-28 w-28 corner-cut-sm opacity-70" aria-hidden="true" />
+              <div className="sapeur-stripes absolute -right-5 -top-5 h-28 w-28 corner-cut-sm opacity-70 max-sm:hidden" aria-hidden="true" />
               <div className="portrait-frame corner-cut overflow-hidden border border-brass/30 bg-ink-2">
                 <img
-                  src="/lumo/rene.png"
+                  src="/lumo/rene.jpg"
                   alt="Portrait de René Descartes"
                   className="w-full object-cover"
                   loading="lazy"

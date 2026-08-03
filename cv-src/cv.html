@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<title>CV — René Descartes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;1,500&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --ink: #0b0f0e; --ink2: #141a18;
+    --brass: #f0b429; --brass2: #e6a63a; --glow: #ffd580;
+    --paper: #faf6ee; --paper2: #f1ead9;
+    --ink-text: #1c1710; --muted: #6f6859;
+  }
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    color: var(--ink-text);
+    background: #d8d2c4;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .page {
+    width: 210mm; min-height: 297mm;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 78mm 1fr;
+    background: var(--paper);
+  }
+
+  /* ───── colonne latérale ───── */
+  .side {
+    background: linear-gradient(160deg, var(--ink) 0%, var(--ink2) 100%);
+    color: #d9d3c4;
+    padding: 9mm 8mm 9mm 8mm;
+    display: flex; flex-direction: column; gap: 5.5mm;
+  }
+  .photo-wrap {
+    position: relative;
+    margin-bottom: 1.5mm;
+  }
+  .photo {
+    width: 100%; aspect-ratio: 3 / 3.15;
+    object-fit: cover;
+    clip-path: polygon(0 0, calc(100% - 7mm) 0, 100% 7mm, 100% 100%, 7mm 100%, 0 calc(100% - 7mm));
+    border: 0.6mm solid rgba(240,180,41,0.55);
+  }
+  .side h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5pt; font-weight: 600;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--brass);
+    padding-bottom: 1.6mm;
+    border-bottom: 0.5mm solid rgba(240,180,41,0.35);
+    margin-bottom: 3.2mm;
+  }
+  .contact-item { display: flex; align-items: flex-start; gap: 2.4mm; margin-bottom: 2.6mm; font-size: 8.2pt; line-height: 1.45; }
+  .contact-item i { color: var(--brass); font-size: 8pt; margin-top: 0.6mm; }
+  .contact-item a { color: #d9d3c4; text-decoration: none; word-break: break-all; }
+  .skill-group { margin-bottom: 3.2mm; }
+  .skill-group .sg-title { font-family: 'JetBrains Mono', monospace; font-size: 7pt; color: var(--glow); text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 1.2mm; }
+  .skill-group .sg-items { font-size: 8.2pt; color: #e6e0d1; line-height: 1.55; }
+  .chip { display: inline-block; background: rgba(240,180,41,0.12); border: 0.3mm solid rgba(240,180,41,0.35); padding: 0.8mm 2.2mm; margin: 0 1mm 1.2mm 0; font-size: 7.4pt; color: var(--glow); }
+  .lang { display: flex; justify-content: space-between; font-size: 8.4pt; margin-bottom: 2mm; color: #e6e0d1; }
+  .lang .lvl { color: var(--brass); font-family: 'JetBrains Mono', monospace; font-size: 7pt; }
+
+  /* ───── colonne principale ───── */
+  .main { padding: 9mm 11mm 9mm 10mm; }
+  .name-row { display: flex; justify-content: space-between; align-items: flex-start; }
+  .name { font-family: 'Fraunces', serif; font-size: 27pt; font-weight: 600; line-height: 1.02; color: var(--ink); }
+  .name em { font-style: italic; color: var(--brass2); }
+  .title {
+    margin-top: 2.6mm; font-size: 10.5pt; font-weight: 500; color: var(--ink-text);
+  }
+  .title span { color: var(--brass2); }
+  .accent-bar { width: 26mm; height: 1.6mm; background: var(--brass); margin-top: 4mm; }
+  .section { margin-top: 4.5mm; }
+  .section h3 {
+    font-family: 'JetBrains Mono', monospace; font-size: 9pt; font-weight: 600;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink);
+    display: flex; align-items: center; gap: 3mm; margin-bottom: 2.4mm;
+  }
+  .section h3::after { content: ""; flex: 1; height: 0.45mm; background: var(--paper2); }
+  .section h3 i { color: var(--brass2); font-size: 8.5pt; }
+  .profil-text { font-size: 9.2pt; line-height: 1.6; color: #3a352b; text-align: justify; }
+  .entry { margin-bottom: 3mm; }
+  .entry-head { display: flex; justify-content: space-between; align-items: baseline; gap: 4mm; }
+  .entry-title { font-size: 10pt; font-weight: 600; color: var(--ink); }
+  .entry-period { font-family: 'JetBrains Mono', monospace; font-size: 7.6pt; color: var(--brass2); white-space: nowrap; }
+  .entry-place { font-size: 8.4pt; color: var(--muted); margin-top: 0.6mm; }
+  .entry-desc { font-size: 8.8pt; color: #3a352b; line-height: 1.55; margin-top: 1.4mm; }
+  .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2mm 4mm; margin-top: 1.6mm; }
+  .feature { font-size: 8.4pt; color: #3a352b; display: flex; align-items: center; gap: 1.8mm; }
+  .feature::before { content: "◆"; color: var(--brass2); font-size: 5.5pt; }
+  .stack { margin-top: 2mm; }
+  .stack span {
+    display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 7.2pt;
+    border: 0.3mm solid rgba(230,166,58,0.5); color: var(--brass2);
+    padding: 0.7mm 2mm; margin: 0 1mm 1.2mm 0;
+  }
+  .qualities { font-size: 8.6pt; line-height: 1.7; color: #3a352b; }
+  .qualities span { display: inline-block; margin-right: 3mm; }
+  .qualities span::before { content: "— "; color: var(--brass2); }
+  .lumo-logo { height: 7mm; vertical-align: -1.2mm; margin-right: 2mm; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ═════════ COLONNE LATÉRALE ═════════ -->
+  <aside class="side">
+    <div class="photo-wrap">
+      <img class="photo" src="file:///C:/Users/rene/rene-descartes-portfolio/public/lumo/rene.jpg" alt="Portrait" />
+    </div>
+
+    <div>
+      <h2>Contact</h2>
+      <div class="contact-item"><i>✉</i><a href="mailto:no.codescreen@gmail.com">no.codescreen@gmail.com</a></div>
+      <div class="contact-item"><i>☎</i><span>+243 891 755 172</span></div>
+      <div class="contact-item"><i>⌂</i><span>Matadi, Kongo Central, RDC</span></div>
+      <div class="contact-item"><i>in</i><a href="https://www.linkedin.com/in/rene-descartes-1b7413408">/in/rene-descartes</a></div>
+      <div class="contact-item"><i>gh</i><a href="https://github.com/nocodescreen-tech">github.com/nocodescreen-tech</a></div>
+    </div>
+
+    <div>
+      <h2>Compétences</h2>
+      <div class="skill-group"><div class="sg-title">Langages</div><div class="sg-items">HTML5 · CSS3 · JavaScript (ES6+) · SQL</div></div>
+      <div class="skill-group"><div class="sg-title">Front-End</div><div class="sg-items">React.js · Tailwind CSS</div></div>
+      <div class="skill-group"><div class="sg-title">Back-End</div><div class="sg-items">Node.js · Express.js</div></div>
+      <div class="skill-group"><div class="sg-title">Bases de données</div><div class="sg-items">PostgreSQL</div></div>
+      <div class="skill-group"><div class="sg-title">API &amp; Sécurité</div><div class="sg-items">REST API · JWT · Google OAuth · RBAC</div></div>
+      <div class="skill-group"><div class="sg-title">Outils &amp; Déploiement</div><div class="sg-items">Git · GitHub · VS Code · Postman · Railway · Vercel</div></div>
+    </div>
+
+    <div>
+      <h2>Langues</h2>
+      <div class="lang"><span>Français</span><span class="lvl">Courant</span></div>
+      <div class="lang"><span>Anglais</span><span class="lvl">Niveaux 1 &amp; 2</span></div>
+    </div>
+
+    <div>
+      <h2>Atouts</h2>
+      <div style="font-size:8.2pt;line-height:1.75;color:#e6e0d1">
+        Analyse · Résolution de problèmes · Organisation · Communication · Autonomie · Apprentissage continu · Adaptabilité · Travail en équipe · Bonnes pratiques · Sens du détail · Curiosité technique · Veille
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═════════ COLONNE PRINCIPALE ═════════ -->
+  <main class="main">
+    <div class="name-row">
+      <div>
+        <h1 class="name">René <em>Descartes</em></h1>
+        <div class="title">Développeur Web <span>Full Stack</span> · UI/UX Designer · Technicien en Maintenance Informatique</div>
+      </div>
+      <img class="lumo-logo" src="file:///C:/Users/rene/rene-descartes-portfolio/public/lumo/lumo_logo.svg" alt="LUMO" />
+    </div>
+    <div class="accent-bar"></div>
+
+    <div class="section">
+      <h3><i>◆</i> Profil</h3>
+      <p class="profil-text">
+        Développeur full stack basé à Matadi, au cœur du Kongo Central. Je conçois des plateformes web
+        complètes — du front-end React jusqu'à la base PostgreSQL — avec le même soin pour l'expérience
+        utilisateur que pour l'architecture du code. Formé à l'ISIPA Matadi, technicien en maintenance et
+        passionné de réseaux, j'apporte une vision systémique : la machine, le réseau, le code et l'utilisateur.
+      </p>
+    </div>
+
+    <div class="section">
+      <h3><i>◆</i> Projet phare — LUMO</h3>
+      <div class="entry">
+        <div class="entry-head">
+          <span class="entry-title">LUMO — plateforme intelligente de gestion commerciale</span>
+          <span class="entry-period">En ligne · Railway</span>
+        </div>
+        <div class="entry-desc">
+          Conception et développement de bout en bout d'une plateforme web de gestion centralisée et
+          automatisée des activités commerciales : utilisateurs, ventes, achats, stocks, produits, clients,
+          fournisseurs, tableau de bord analytique et statistiques.
+        </div>
+        <div class="feature-grid">
+          <div class="feature">Gestion des utilisateurs</div>
+          <div class="feature">Authentification sécurisée (JWT)</div>
+          <div class="feature">Gestion des rôles (RBAC)</div>
+          <div class="feature">Ventes &amp; achats</div>
+          <div class="feature">Stocks &amp; produits</div>
+          <div class="feature">Clients &amp; fournisseurs</div>
+          <div class="feature">Tableau de bord analytique</div>
+          <div class="feature">Statistiques &amp; rapports</div>
+        </div>
+        <div class="stack">
+          <span>React.js</span><span>Node.js</span><span>Express.js</span><span>PostgreSQL</span>
+          <span>Tailwind CSS</span><span>JWT</span><span>Google OAuth</span><span>RBAC</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3><i>◆</i> Expérience</h3>
+      <div class="entry">
+        <div class="entry-head">
+          <span class="entry-title">Développeur web — pratique continue</span>
+          <span class="entry-period">+1 an</span>
+        </div>
+        <div class="entry-place">Projets personnels &amp; apprentissage permanent</div>
+        <div class="entry-desc">
+          Conception et développement d'applications web complètes en conditions réelles : cahier des
+          charges, maquettes, API, bases de données, déploiement et maintenance. Veille technologique active.
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3><i>◆</i> Formation</h3>
+      <div class="entry">
+        <div class="entry-head">
+          <span class="entry-title">Licence (Bac+3) en Technique de Maintenance</span>
+          <span class="entry-period">2026</span>
+        </div>
+        <div class="entry-place">ISIPA Matadi — Institut Supérieur d'Informatique, Programmation et Analyse</div>
+      </div>
+      <div class="entry">
+        <div class="entry-head">
+          <span class="entry-title">Formation en Réseaux Informatiques — Niveau 1</span>
+          <span class="entry-period">2022</span>
+        </div>
+        <div class="entry-place">Formation technique</div>
+      </div>
+      <div class="entry">
+        <div class="entry-head">
+          <span class="entry-title">Formation en Anglais — Niveaux 1 &amp; 2</span>
+          <span class="entry-period">2022 – 2023</span>
+        </div>
+        <div class="entry-place">Cours de langue</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3><i>◆</i> Qualités professionnelles</h3>
+      <div class="qualities">
+        <span>Esprit d'analyse</span><span>Résolution de problèmes</span><span>Organisation</span>
+        <span>Communication</span><span>Autonomie</span><span>Adaptabilité</span>
+        <span>Travail en équipe</span><span>Sens du détail</span><span>Curiosité technique</span>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

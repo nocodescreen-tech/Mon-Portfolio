@@ -80,11 +80,11 @@ function CodeWindow() {
 
 function RoleRotator({ roles }) {
   return (
-    <span className="relative inline-block overflow-hidden align-bottom h-[1.35em]">
+    <span className="relative inline-block max-w-full overflow-hidden align-bottom h-[1.35em]">
       {roles.map((role, i) => (
         <motion.span
           key={role}
-          className="block font-display italic text-brass"
+          className="block font-display italic text-brass whitespace-nowrap"
           initial={{ y: '100%', opacity: 0 }}
           animate={{ y: '0%', opacity: 1 }}
           transition={{ duration: 0.8, delay: 1.3 + i * 0.02, ease }}
@@ -110,7 +110,7 @@ export default function Hero() {
       </div>
 
       <div className="relative mx-auto grid w-full max-w-6xl gap-16 px-6 md:px-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
-        <div>
+        <div className="min-w-0">
           <motion.p
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -125,7 +125,7 @@ export default function Hero() {
             initial={{ opacity: 0, y: 26, filter: 'blur(8px)' }}
             animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
             transition={{ duration: 0.9, delay: 0.28, ease }}
-            className="font-display text-[13vw] leading-[0.98] font-medium text-mist sm:text-6xl md:text-7xl lg:text-[5.2rem]"
+            className="font-display text-[15vw] leading-[0.98] font-medium text-mist min-[420px]:text-[13vw] sm:text-6xl md:text-7xl lg:text-[5.2rem]"
           >
             René
             <br />
@@ -136,7 +136,7 @@ export default function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.55, ease }}
-            className="mt-7 text-lg md:text-2xl text-mist/90"
+            className="mt-7 text-[clamp(14px,3.9vw,18px)] md:text-2xl text-mist/90 min-w-0"
           >
             <RoleRotator roles={profile.roles} />
           </motion.div>
@@ -161,7 +161,7 @@ export default function Hero() {
             <Magnetic>
               <a
                 href="#projets"
-                className="corner-cut inline-flex items-center gap-3 bg-brass px-7 py-4 font-mono text-sm font-semibold text-ink transition-all hover:bg-brass-soft hover:shadow-[0_0_40px_rgba(240,180,41,0.4)]"
+                className="corner-cut inline-flex items-center gap-2.5 bg-brass px-5 py-3.5 md:px-7 md:py-4 font-mono text-sm font-semibold text-ink transition-all hover:bg-brass-soft hover:shadow-[0_0_40px_rgba(240,180,41,0.4)]"
               >
                 Voir mes projets
                 <i className="fa-solid fa-arrow-down text-sm" aria-hidden="true" />
@@ -170,7 +170,7 @@ export default function Hero() {
             <Magnetic>
               <a
                 href="#contact"
-                className="corner-cut inline-flex items-center gap-3 border border-mist/25 px-7 py-4 font-mono text-sm text-mist transition-all hover:border-brass hover:text-brass"
+                className="corner-cut inline-flex items-center gap-2.5 border border-mist/25 px-5 py-3.5 md:px-7 md:py-4 font-mono text-sm text-mist transition-all hover:border-brass hover:text-brass"
               >
                 Me contacter
               </a>
@@ -179,7 +179,7 @@ export default function Hero() {
               <a
                 href={profile.cvUrl}
                 download
-                className="corner-cut inline-flex items-center gap-3 border border-brass/40 bg-ink-2/60 px-7 py-4 font-mono text-sm text-brass transition-all hover:bg-brass hover:text-ink hover:shadow-[0_0_32px_rgba(240,180,41,0.4)]"
+                className="corner-cut inline-flex items-center gap-2.5 border border-brass/40 bg-ink-2/60 px-5 py-3.5 md:px-7 md:py-4 font-mono text-sm text-brass transition-all hover:bg-brass hover:text-ink hover:shadow-[0_0_32px_rgba(240,180,41,0.4)]"
               >
                 <i className="fa-solid fa-file-arrow-down text-sm" aria-hidden="true" />
                 Mon CV
@@ -191,10 +191,10 @@ export default function Hero() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 1.05 }}
-            className="mt-10 flex items-center gap-5"
+            className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-3"
           >
             <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-fog">Suivez-moi</span>
-            <span className="h-px w-10 bg-brass/40" />
+            <span className="hidden sm:block h-px w-10 bg-brass/40" />
             {[
               { href: profile.links.linkedin, icon: 'fa-brands fa-linkedin-in', label: 'LinkedIn' },
               { href: profile.links.github, icon: 'fa-brands fa-github', label: 'GitHub' },
@@ -206,9 +206,9 @@ export default function Hero() {
                   target="_blank"
                   rel="noreferrer"
                   aria-label={label}
-                  className="grid h-11 w-11 place-items-center corner-cut-sm bg-ink-2 ring-1 ring-brass/20 text-fog transition-all hover:text-brass hover:ring-brass/60 hover:shadow-[0_0_20px_rgba(240,180,41,0.25)]"
+                  className="grid h-10 w-10 sm:h-11 sm:w-11 place-items-center corner-cut-sm bg-ink-2 ring-1 ring-brass/20 text-fog transition-all hover:text-brass hover:ring-brass/60 hover:shadow-[0_0_20px_rgba(240,180,41,0.25)]"
                 >
-                  <i className={`${icon} text-[15px]`} aria-hidden="true" />
+                  <i className={`${icon} text-[14px] sm:text-[15px]`} aria-hidden="true" />
                 </a>
               </Magnetic>
             ))}
@@ -216,9 +216,9 @@ export default function Hero() {
               <a
                 href={`mailto:${profile.email}`}
                 aria-label="Email"
-                className="grid h-11 w-11 place-items-center corner-cut-sm bg-ink-2 ring-1 ring-brass/20 text-fog transition-all hover:text-brass hover:ring-brass/60"
+                className="grid h-10 w-10 sm:h-11 sm:w-11 place-items-center corner-cut-sm bg-ink-2 ring-1 ring-brass/20 text-fog transition-all hover:text-brass hover:ring-brass/60"
               >
-                <i className="fa-solid fa-envelope text-[15px]" aria-hidden="true" />
+                <i className="fa-solid fa-envelope text-[14px] sm:text-[15px]" aria-hidden="true" />
               </a>
             </Magnetic>
           </motion.div>

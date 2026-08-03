@@ -35,6 +35,7 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: clip; /* empêche tout débordement horizontal — sans casser le fixed (contrairement à hidden) */
 }
 
 body {

@@ -15,13 +15,13 @@ export default function Projects() {
       kicker="Une plateforme web intelligente de gestion centralisée et automatisée des activités commerciales. Captures réelles de l'application ci-dessous."
     >
       <div className="grid items-start gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14">
-        <div>
+        <div className="min-w-0">
           <Reveal>
             <LumoScreens />
           </Reveal>
         </div>
 
-        <div>
+        <div className="min-w-0">
           <Reveal>
             <div className="flex items-center gap-4">
               <img src="/lumo/lumo_logo.svg" alt="Logo LUMO" className="h-14 w-14" loading="lazy" />
