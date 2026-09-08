@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>20+ Templates Portfolio — Choisis ta direction</title>
+<style>
+  :root { --bg:#f6f5f2; --card:#fff; --ink:#1b1714; --mut:#6f675c; --line:#e7e1d8; --acc:#c2410c; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--ink); font-family:"Segoe UI", system-ui, sans-serif; padding:48px 28px 80px; }
+  header { max-width:1240px; margin:0 auto 40px; }
+  h1 { font-size:34px; font-weight:800; letter-spacing:-.02em; }
+  h1 span { color:var(--acc); }
+  p.lead { color:var(--mut); margin-top:10px; font-size:15px; max-width:720px; line-height:1.6; }
+  .meta { margin-top:18px; font-size:13px; color:var(--mut); display:flex; gap:18px; flex-wrap:wrap; }
+  .meta b { color:var(--ink); }
+  .grid { max-width:1240px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:22px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; overflow:hidden; transition:transform .2s, box-shadow .2s; display:flex; flex-direction:column; }
+  .card:hover { transform:translateY(-3px); box-shadow:0 18px 40px -22px rgba(27,23,20,.25); }
+  .thumb { position:relative; aspect-ratio:4/3; overflow:hidden; background:#e9e6e0; border-bottom:1px solid var(--line); }
+  .thumb img { width:100%; height:100%; object-fit:cover; object-position:top; display:block; transition:transform .4s; }
+  .card:hover .thumb img { transform:scale(1.04); }
+  .num { position:absolute; top:10px; left:10px; background:rgba(27,23,20,.82); color:#fff; font-size:11px; font-weight:700; padding:4px 9px; border-radius:99px; }
+  .body { padding:16px 18px 18px; display:flex; flex-direction:column; gap:6px; flex:1; }
+  .name { font-size:17px; font-weight:700; letter-spacing:-.01em; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .badge { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:var(--acc); border:1px solid rgba(194,65,12,.3); background:rgba(194,65,12,.06); padding:2px 8px; border-radius:99px; }
+  .style { color:var(--mut); font-size:13px; }
+  .links { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; }
+  .btn { font-size:12px; font-weight:600; text-decoration:none; padding:8px 14px; border-radius:9px; border:1px solid var(--line); color:var(--ink); transition:.15s; }
+  .btn.demo { background:var(--acc); border-color:var(--acc); color:#fff; }
+  .btn:hover { opacity:.85; }
+  footer { max-width:1240px; margin:50px auto 0; color:var(--mut); font-size:13px; line-height:1.7; }
+  @media (max-width:640px){ .grid{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<header>
+  <h1>20+ templates portfolio — <span>visuels réels</span></h1>
+  <p class="lead">Chaque carte montre un aperçu réel du template (capturé depuis le site). Clique sur
+  <b>Voir la démo</b> pour ouvrir le template en direct, ou <b>Page du template</b> pour la fiche officielle.
+  Tous sont gratuits (HTML/CSS/JS ou Bootstrap) et adaptables en React.</p>
+  <div class="meta">
+    <span><b>23</b> templates vérifiés en ligne</span>
+    <span>Sources : <b>HTML5 UP</b> · <b>Start Bootstrap</b> · <b>BootstrapMade</b></span>
+  </div>
+</header>
+
+<div class="grid" id="grid"></div>
+
+<footer>
+  Aperçus capturés automatiquement (Chrome headless) le jour de la création de cette liste.
+  Licence : HTML5 UP = CC BY 3.0 · Start Bootstrap = MIT · BootstrapMade = libre avec mention du crédit.
+  Dis-moi le numéro qui te plaît et je te refais le portfolio sur ce modèle.
+</footer>
+
+<script>
+const TEMPLATES = [
+  { n:1,  name:"Massively", badge:"HTML5 UP", style:"Éditorial sombre, typo énorme, image plein écran", shot:"template-shots/01-massively.jpg", demo:"https://html5up.net/massively", page:"https://html5up.net/massively" },
+  { n:2,  name:"Editorial", badge:"HTML5 UP", style:"Éditorial clair, colonnes, pro & lisible", shot:"template-shots/02-editorial.jpg", demo:"https://html5up.net/editorial", page:"https://html5up.net/editorial" },
+  { n:3,  name:"Dimension", badge:"HTML5 UP", style:"Sombre élégant, one-page, boutons ronds", shot:"template-shots/03-dimension.jpg", demo:"https://html5up.net/dimension", page:"https://html5up.net/dimension" },
+  { n:4,  name:"Astral", badge:"HTML5 UP", style:"One-page minimal, très propre", shot:"template-shots/04-astral.jpg", demo:"https://html5up.net/astral", page:"https://html5up.net/astral" },
+  { n:5,  name:"Story", badge:"HTML5 UP", style:"Storytelling clair, gros espaces, moderne", shot:"template-shots/05-story.jpg", demo:"https://html5up.net/story", page:"https://html5up.net/story" },
+  { n:6,  name:"Paradigm Shift", badge:"HTML5 UP", style:"Split screen moderne, typo forte", shot:"template-shots/06-paradigm-shift.jpg", demo:"https://html5up.net/paradigm-shift", page:"https://html5up.net/paradigm-shift" },
+  { n:7,  name:"Forty", badge:"HTML5 UP", style:"Portfolio bold, tuiles couleur, clair", shot:"template-shots/07-forty.jpg", demo:"https://html5up.net/forty", page:"https://html5up.net/forty" },
+  { n:8,  name:"Phantom", badge:"HTML5 UP", style:"Galerie de projets, grille aérée", shot:"template-shots/08-phantom.jpg", demo:"https://html5up.net/phantom", page:"https://html5up.net/phantom" },
+  { n:9,  name:"Ethereal", badge:"HTML5 UP", style:"Créatif immersif, layout audacieux", shot:"template-shots/09-ethereal.jpg", demo:"https://html5up.net/ethereal", page:"https://html5up.net/ethereal" },
+  { n:10, name:"Hyperspace", badge:"HTML5 UP", style:"Nav latérale, dégradés, moderne", shot:"template-shots/10-hyperspace.jpg", demo:"https://html5up.net/hyperspace", page:"https://html5up.net/hyperspace" },
+  { n:11, name:"Spectral", badge:"HTML5 UP", style:"One-page coloré, sections fluides", shot:"template-shots/11-spectral.jpg", demo:"https://html5up.net/spectral", page:"https://html5up.net/spectral" },
+  { n:12, name:"Lens", badge:"HTML5 UP", style:"Galerie photo immersive", shot:"template-shots/12-lens.jpg", demo:"https://html5up.net/lens", page:"https://html5up.net/lens" },
+  { n:13, name:"Fractal", badge:"HTML5 UP", style:"Landing minimaliste, un produit", shot:"template-shots/13-fractal.jpg", demo:"https://html5up.net/fractal", page:"https://html5up.net/fractal" },
+  { n:14, name:"Freelancer", badge:"Start Bootstrap", style:"Portfolio créatif clair, avatar, succès", shot:"template-shots/14-freelancer.jpg", demo:"https://startbootstrap.com/theme/freelancer", page:"https://startbootstrap.com/theme/freelancer" },
+  { n:15, name:"Agency", badge:"Start Bootstrap", style:"Agence créative, portfolio + services", shot:"template-shots/15-agency.jpg", demo:"https://startbootstrap.com/theme/agency", page:"https://startbootstrap.com/theme/agency" },
+  { n:16, name:"Resume", badge:"Start Bootstrap", style:"CV en ligne, chronologie, très pro", shot:"template-shots/16-resume.jpg", demo:"https://startbootstrap.com/theme/resume", page:"https://startbootstrap.com/theme/resume" },
+  { n:17, name:"Personal", badge:"Start Bootstrap", style:"Site perso pro, photo, minimal", shot:"template-shots/17-personal.jpg", demo:"https://startbootstrap.com/theme/personal", page:"https://startbootstrap.com/theme/personal" },
+  { n:18, name:"Creative", badge:"Start Bootstrap", style:"Créatif, orange, portfolio punchy", shot:"template-shots/18-creative.jpg", demo:"https://startbootstrap.com/theme/creative", page:"https://startbootstrap.com/theme/creative" },
+  { n:19, name:"Clean Blog", badge:"Start Bootstrap", style:"Blog / écriture, typo serif élégante", shot:"template-shots/19-clean-blog.jpg", demo:"https://startbootstrap.com/theme/clean-blog", page:"https://startbootstrap.com/theme/clean-blog" },
+  { n:20, name:"One Page Wonder", badge:"Start Bootstrap", style:"One-page dynamique, fun", shot:"template-shots/20-one-page-wonder.jpg", demo:"https://startbootstrap.com/theme/one-page-wonder", page:"https://startbootstrap.com/theme/one-page-wonder" },
+  { n:21, name:"iPortfolio", badge:"BootstrapMade", style:"CV/portfolio sombre pro, sidebar", shot:"template-shots/21-iportfolio.jpg", demo:"https://bootstrapmade.com/iportfolio-bootstrap-portfolio-websites-template/", page:"https://bootstrapmade.com/iportfolio-bootstrap-portfolio-websites-template/" },
+  { n:22, name:"MyPortfolio", badge:"BootstrapMade", style:"Portfolio pro clair, hero plein écran", shot:"template-shots/22-myportfolio.jpg", demo:"https://bootstrapmade.com/myportfolio-bootstrap-portfolio-website-template/", page:"https://bootstrapmade.com/myportfolio-bootstrap-portfolio-website-template/" },
+  { n:23, name:"Kelly", badge:"BootstrapMade", style:"CV épuré, pastel, portrait", shot:"template-shots/23-kelly.jpg", demo:"https://bootstrapmade.com/kelly-free-bootstrap-cv-resume-html-template/", page:"https://bootstrapmade.com/kelly-free-bootstrap-cv-resume-html-template/" },
+];
+
+const grid = document.getElementById('grid');
+TEMPLATES.forEach((t) => {
+  const card = document.createElement('article');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="thumb">
+      <img src="${t.shot}" alt="Aperçu du template ${t.name}" loading="lazy" />
+      <span class="num">#${t.n}</span>
+    </div>
+    <div class="body">
+      <div class="name">${t.name} <span class="badge">${t.badge}</span></div>
+      <div class="style">${t.style}</div>
+      <div class="links">
+        <a class="btn demo" href="${t.demo}" target="_blank" rel="noreferrer">Voir la démo</a>
+        <a class="btn" href="${t.page}" target="_blank" rel="noreferrer">Page officielle</a>
+      </div>
+    </div>`;
+  grid.appendChild(card);
+});
+</script>
+</body>
+</html>

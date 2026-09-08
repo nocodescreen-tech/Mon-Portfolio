@@ -1,104 +1,112 @@
-import { profile, aboutParagraphs, qualities } from '../data/content'
-import { Section, Reveal } from './ui'
+import { about, skillGroups } from '../data/content'
+import { Reveal, Parallax, GroupReveal, MediaZoom } from './motion'
+import SectionHeading from './SectionHeading'
+import CountUp from './CountUp'
+import Card from './Card'
+import Tilt3D from './Tilt3D'
 
+/**
+ * À propos — humain et concis. Portrait réel, texte court.
+ * Repères chiffrés animés : uniquement des valeurs visibles sur le site
+ * (pôles de compétences, domaines d'activité, projets livrés) — aucune
+ * statistique inventée.
+ */
 export default function About() {
-  const facts = [
-    { icon: 'fa-solid fa-graduation-cap', label: 'Formation', value: 'Licence ISIPA Matadi — 2026' },
-    { icon: 'fa-solid fa-location-dot', label: 'Localisation', value: profile.location },
-    { icon: 'fa-solid fa-envelope', label: 'Email', value: profile.email },
-    { icon: 'fa-solid fa-wrench', label: 'Spécialités', value: 'Web · UI/UX · Maintenance & Réseaux' },
+  const stats = [
+    { n: skillGroups.length, label: 'pôles de compétences' },
+    { n: about.domains.length, label: "domaines d'activité" },
+    { n: 2, label: 'projets livrés de A à Z' },
   ]
 
   return (
-    <Section
-      id="a-propos"
-      label="a-propos"
-      title={
-        <>
-          Une vision <span className="italic text-brass">systémique</span>
-          <br />
-          du numérique
-        </>
-      }
-      kicker="Développeur, designer et technicien : je comprends la machine, le réseau, le code et l'utilisateur."
-    >
-      <div className="grid gap-14 lg:grid-cols-[1.1fr_0.9fr] lg:gap-20">
-        <div className="min-w-0">
-          <div className="relative">
-            <div className="sapeur-stripes absolute -left-6 -top-6 h-24 w-24 corner-cut-sm opacity-60 max-sm:hidden" aria-hidden="true" />
-            <div className="space-y-6 text-[15px] md:text-base leading-relaxed text-mist/85">
-              {aboutParagraphs.map((p, i) => (
-                <Reveal key={i} delay={i * 0.1}>
-                  <p>{p}</p>
+    <section id="a-propos" className="relative py-24 md:py-32">
+      <div className="mx-auto w-full max-w-6xl px-6 md:px-10">
+        <SectionHeading label="À propos" title="Le designer qui code" />
+
+        <div className="grid items-start gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+          {/* photo */}
+          <Parallax speed={0.4}>
+            <Reveal>
+              <Tilt3D max={5}>
+                <div className="relative">
+                  {/* halo derrière le portrait */}
+                  <div
+                    aria-hidden="true"
+                    className="absolute -inset-4 rounded-[28px]"
+                    style={{ background: 'linear-gradient(135deg, transparent 35%, var(--accent) 60%, transparent 95%)', opacity: 0.22, filter: 'blur(20px)' }}
+                  />
+                  <Card className="relative">
+                    <MediaZoom>
+                      <img src="/lumo/portrait.png" alt="Portrait de René Descartes" className="w-full object-cover" loading="lazy" />
+                    </MediaZoom>
+                    <span className="absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[11px] backdrop-blur"
+                      style={{ background: 'color-mix(in srgb, var(--bg) 70%, transparent)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
+                      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--accent)' }} />
+                      Matadi · RDC
+                    </span>
+                  </Card>
+                </div>
+              </Tilt3D>
+            </Reveal>
+          </Parallax>
+
+          {/* texte */}
+          <div>
+            <Reveal>
+              <p className="font-display text-2xl font-medium leading-snug t-text md:text-[1.7rem]">{about.intro}</p>
+            </Reveal>
+
+            <div className="mt-6 space-y-5">
+              {about.paragraphs.map((p, i) => (
+                <Reveal key={i} delay={i * 0.06}>
+                  <p className="text-base leading-relaxed t-text2 md:text-[17px]">{p}</p>
                 </Reveal>
               ))}
             </div>
-          </div>
 
-          <Reveal delay={0.2} className="mt-10">
-            <div className="flex items-center gap-3 mb-5">
-              <i className="fa-solid fa-wand-magic-sparkles text-brass" aria-hidden="true" />
-              <h3 className="font-mono text-xs uppercase tracking-[0.2em] text-brass">Qualités professionnelles</h3>
-            </div>
-            <div className="flex flex-wrap gap-2.5">
-              {qualities.map((q) => (
-                <span
-                  key={q}
-                  className="corner-cut-sm border border-brass/20 bg-ink-2 px-3.5 py-1.5 text-[13px] text-mist/90 transition-colors hover:border-brass/60 hover:text-brass"
-                >
-                  {q}
-                </span>
-              ))}
-            </div>
-          </Reveal>
-        </div>
-
-        <div className="min-w-0">
-          {/* portrait réel */}
-          <Reveal delay={0.05}>
-            <div className="relative mb-8 max-w-sm">
-              <div className="sapeur-stripes absolute -right-5 -top-5 h-28 w-28 corner-cut-sm opacity-70 max-sm:hidden" aria-hidden="true" />
-              <div className="portrait-frame corner-cut overflow-hidden border border-brass/30 bg-ink-2">
-                <img
-                  src="/lumo/rene.jpg"
-                  alt="Portrait de René Descartes"
-                  className="w-full object-cover"
-                  loading="lazy"
-                />
+            {/* relation design/code/utilisateur */}
+            <Reveal>
+              <div className="mt-9 border-l-2 pl-5" style={{ borderColor: 'var(--accent)' }}>
+                <p className="text-[15px] leading-relaxed t-text2">
+                  Je crois qu'un bon produit tient sur une équation simple :{' '}
+                  <span className="font-medium t-text">le design rend l'outil clair</span>,{' '}
+                  <span className="font-medium t-text">le code le rend fiable</span>, et{' '}
+                  <span className="font-medium t-text">l'utilisateur reste au centre</span>.
+                </p>
               </div>
-              <div className="corner-cut-sm absolute -bottom-4 -left-4 flex items-center gap-2 bg-brass px-4 py-2 font-mono text-[12px] font-semibold text-ink shadow-[0_10px_30px_-10px_rgba(240,180,41,0.6)]">
-                <i className="fa-solid fa-code" aria-hidden="true" />
-                Full Stack
-              </div>
-            </div>
-          </Reveal>
+            </Reveal>
 
-          <div className="space-y-4">
-            {facts.map(({ icon, label, value }, i) => (
-              <Reveal key={label} delay={i * 0.08}>
-                <div className="group corner-cut flex items-start gap-5 border border-brass/12 bg-ink-2/60 p-6 transition-all hover:border-brass/45 hover:bg-ink-3">
-                  <span className="grid h-12 w-12 shrink-0 place-items-center corner-cut-sm bg-brass/12 text-brass transition-colors group-hover:bg-brass group-hover:text-ink">
-                    <i className={`${icon} text-lg`} aria-hidden="true" />
+            {/* domaines d'activité */}
+            <Reveal>
+              <div className="mt-8 flex flex-wrap gap-2">
+                {about.domains.map((d) => (
+                  <span
+                    key={d}
+                    className="chip-fx inline-flex items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-[12px] t-text2"
+                    style={{ borderColor: 'var(--border)' }}
+                  >
+                    <span aria-hidden="true" className="h-1 w-1 rounded-full" style={{ background: 'var(--accent)' }} />
+                    {d}
                   </span>
-                  <div>
-                    <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-fog">{label}</div>
-                    <div className="mt-1 text-[15px] font-medium text-mist break-words">{value}</div>
-                  </div>
-                </div>
-              </Reveal>
-            ))}
-
-            <Reveal delay={0.35}>
-              <div className="corner-cut relative overflow-hidden bg-gradient-to-br from-brass/15 via-ink-2 to-ink-2 border border-brass/25 p-6">
-                <div className="font-display text-lg italic text-brass-soft leading-snug">
-                  « Je code comme je pense : avec méthode, clarté et le souci du détail. »
-                </div>
-                <div className="mt-3 font-mono text-xs text-fog">— René Descartes</div>
+                ))}
               </div>
             </Reveal>
           </div>
         </div>
+
+        {/* repères chiffrés animés (valeurs visibles du site) */}
+        <GroupReveal className="mt-16 grid gap-10 sm:grid-cols-3" stagger={0.1}>
+          {stats.map((s) => (
+            <div key={s.label} className="flex flex-col items-start gap-2">
+              <span aria-hidden="true" className="h-px w-10" style={{ background: 'linear-gradient(90deg, var(--accent), transparent)' }} />
+              <div className="font-display text-4xl font-semibold tracking-tight t-text md:text-5xl" style={{ letterSpacing: '-0.02em' }}>
+                <CountUp to={s.n} />
+              </div>
+              <div className="font-mono text-[11px] uppercase tracking-[0.18em] t-text3">{s.label}</div>
+            </div>
+          ))}
+        </GroupReveal>
       </div>
-    </Section>
+    </section>
   )
 }

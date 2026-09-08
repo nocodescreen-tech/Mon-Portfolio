@@ -1,21 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
   <defs>
-    <linearGradient id="g" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F5C469"/>
-      <stop offset="1" stop-color="#D9922E"/>
+    <linearGradient id="flame" x1="8" y1="56" x2="56" y2="8" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff8a4d"/>
+      <stop offset="1" stop-color="#ff5b2e"/>
     </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop stop-color="#ff5b2e" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#ff5b2e" stop-opacity="0"/>
+    </radialGradient>
   </defs>
-  <rect width="64" height="64" rx="14" fill="#0B0F0E"/>
-  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="13.25" stroke="#F0B429" stroke-opacity="0.35" stroke-width="1.5"/>
-  <g stroke="#F0B429" stroke-opacity="0.35" stroke-width="1.2" stroke-linecap="round">
-    <line x1="32" y1="2" x2="32" y2="12"/>
-    <line x1="32" y1="52" x2="32" y2="62"/>
-    <line x1="2" y1="32" x2="12" y2="32"/>
-    <line x1="52" y1="32" x2="62" y2="32"/>
-    <line x1="10.8" y1="10.8" x2="17.8" y2="17.8"/>
-    <line x1="46.2" y1="46.2" x2="53.2" y2="53.2"/>
-    <line x1="10.8" y1="53.2" x2="17.8" y2="46.2"/>
-    <line x1="46.2" y1="17.8" x2="53.2" y2="10.8"/>
-  </g>
-  <text x="32" y="41.5" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-style="italic" font-weight="600" font-size="26" fill="url(#g)">RD</text>
+
+  <rect width="64" height="64" rx="15" fill="#121316"/>
+  <circle cx="6" cy="6" r="34" fill="url(#glow)"/>
+  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="14.25" stroke="url(#flame)" stroke-opacity="0.35" stroke-width="1.5"/>
+
+  <text x="32" y="41" text-anchor="middle" font-family="'Space Grotesk', 'Segoe UI', Arial, sans-serif" font-weight="700" font-size="28" letter-spacing="-1" fill="#F3F1EE">RD</text>
+
+  <circle cx="46" cy="21" r="3" fill="url(#flame)"/>
+  <rect x="14" y="49" width="12" height="2.4" rx="1.2" fill="url(#flame)" opacity="0.9"/>
 </svg>

@@ -1,14 +1,13 @@
 export const profile = {
   name: 'René Descartes',
   firstName: 'René',
-  role: 'Développeur Web Full Stack',
-  roles: ['Développeur Web Full Stack', 'UI/UX Designer', 'Technicien en Maintenance Informatique'],
+  role: 'Développeur full-stack & designer UI/UX',
   location: 'Matadi, RDC',
   email: 'no.codescreen@gmail.com',
   phone: '+243 891 755 172',
   whatsapp: 'https://wa.me/243891755172',
   whatsappMsg:
-    "Bonjour René 👋 Je vous contacte depuis votre portfolio. Je suis intéressé(e) par vos services et j'aimerais en discuter.",
+    "Bonjour René, je vous contacte depuis votre portfolio. J'aimerais discuter d'un projet avec vous.",
   cvUrl: '/cv/Rene-Descartes-CV.pdf',
   lumoRepo: 'https://github.com/nocodescreen-tech/LUMO',
   lumoLive: 'https://lumo-frontend-production-1dba.up.railway.app/',
@@ -19,123 +18,137 @@ export const profile = {
   },
 }
 
-export const stats = [
-  { value: 1, prefix: '+', suffix: ' an', label: "d'expérience en développement web" },
-  { value: 7, suffix: '', label: 'domaines d’intervention' },
-  { value: 1, suffix: '', label: 'projet phare — LUMO' },
-  { value: 10, suffix: '+', label: 'technologies maîtrisées' },
+export const lumo = {
+  title: 'LUMO',
+  subtitle: "L'outil qui aide les petits commerces à gérer ventes et stocks simplement, au quotidien.",
+  stack: ['React', 'Node.js', 'Express', 'PostgreSQL', 'Tailwind CSS', 'JWT', 'OAuth'],
+  built: [
+    'Gestion des ventes',
+    'Gestion des achats',
+    'Gestion des stocks et produits',
+    'Gestion des clients et fournisseurs',
+    'Authentification et rôles (RBAC)',
+    'Tableau de bord et statistiques',
+    'Déploiement en production',
+  ],
+}
+
+export const about = {
+  intro: "Je suis René Descartes, développeur full-stack et technicien informatique, basé à Matadi, en RDC.",
+  paragraphs: [
+    "Je construis des applications web complètes : de l'interface à la base de données, jusqu'à la mise en ligne. LUMO, ma plateforme de gestion commerciale, est un projet que j'ai pensé, conçu et développé seul, de la première maquette à la production.",
+    "Avant le code, il y a la machine. Formé en maintenance informatique, je comprends le matériel, le réseau et le logiciel — ça m'aide à livrer des solutions qui fonctionnent vraiment, et à dire honnêtement quand quelque chose n'est pas encore prêt.",
+    "Travailler depuis Matadi apprend la rigueur : chaque requête compte, chaque outil doit tenir sur un usage réel, au quotidien.",
+  ],
+  education: {
+    title: 'Licence en Technique de Maintenance (Bac+3)',
+    school: "ISIPA Matadi — Institut Supérieur d'Informatique, Programmation et Analyse",
+  },
+  domains: ['Développement web', 'Applications métier', 'Maintenance informatique', 'LAN / Wi-Fi', 'Sécurité réseau'],
+}
+
+export const services = [
+  {
+    n: '01',
+    title: 'Sites vitrines',
+    text: "Un site rapide et soigné qui présente votre activité, de la maquette au déploiement.",
+    tags: ['React', 'Tailwind', 'Vercel'],
+  },
+  {
+    n: '02',
+    title: 'Applications métier',
+    text: 'Ventes, achats, stocks, clients : des outils sur mesure pour gérer votre activité au quotidien.',
+    tags: ['Node.js', 'Express', 'PostgreSQL'],
+  },
+  {
+    n: '03',
+    title: 'E-commerce',
+    text: 'Boutiques en ligne avec catalogue, comptes clients et gestion des commandes.',
+    tags: ['React', 'JWT', 'PostgreSQL'],
+  },
+  {
+    n: '04',
+    title: 'Maintenance informatique',
+    text: 'Diagnostic, entretien et dépannage de postes informatiques.',
+    tags: ['Hardware', 'Windows', 'Sécurité'],
+  },
+  {
+    n: '05',
+    title: 'Réseaux',
+    text: 'Installation, configuration et maintenance de réseaux LAN / Wi-Fi.',
+    tags: ['LAN', 'Wi-Fi', 'Sécurité'],
+  },
 ]
 
-export const qualities = [
-  "Esprit d'analyse",
-  'Résolution de problèmes',
-  'Organisation',
-  'Communication',
-  'Autonomie',
-  'Apprentissage continu',
-  'Adaptabilité',
-  'Travail en équipe',
-  'Bonnes pratiques de développement',
-  'Sens du détail',
-  'Curiosité technique',
-  'Veille technologique',
-]
-
+/* Source unique des compétences (la grille affichée dans Skills). */
 export const skillGroups = [
   {
-    id: 'langages',
-    label: 'Langages',
-    code: '01',
-    items: ['HTML5', 'CSS3', 'JavaScript (ES6+)', 'SQL'],
+    id: 'uiux',
+    label: 'UI/UX',
+    icon: 'fa-pen-ruler',
+    desc: 'Interfaces claires et utiles, pensées pour l’usage.',
+    items: ['Design d’interface', 'Prototypage', 'Figma', 'Design system'],
   },
   {
     id: 'frontend',
-    label: 'Front-End',
-    code: '02',
-    items: ['React.js', 'Tailwind CSS'],
+    label: 'Frontend',
+    icon: 'fa-code',
+    desc: 'Des interfaces rapides, réactives et accessibles.',
+    items: ['React', 'Tailwind CSS', 'JavaScript (ES6+)', 'HTML5', 'CSS3'],
   },
   {
     id: 'backend',
-    label: 'Back-End',
-    code: '03',
-    items: ['Node.js', 'Express.js'],
+    label: 'Backend & données',
+    icon: 'fa-server',
+    desc: 'Des API propres, une logique métier solide, des données fiables.',
+    items: ['Node.js', 'Express.js', 'PostgreSQL', 'SQL'],
   },
   {
-    id: 'bdd',
-    label: 'Bases de données',
-    code: '04',
-    items: ['PostgreSQL'],
-  },
-  {
-    id: 'api',
-    label: 'API & Sécurité',
-    code: '05',
-    items: ['REST API', 'JWT Authentication', 'Google OAuth', 'RBAC'],
+    id: 'securite',
+    label: 'Sécurité & API',
+    icon: 'fa-shield-halved',
+    desc: 'Des données protégées et des accès maîtrisés.',
+    items: ['REST API', 'JWT', 'Google OAuth', 'RBAC'],
   },
   {
     id: 'outils',
-    label: 'Outils',
-    code: '06',
-    items: ['Git', 'GitHub', 'VS Code', 'Postman'],
+    label: 'Outils & déploiement',
+    icon: 'fa-rocket',
+    desc: 'Des outils de travail soignés et des mises en ligne maîtrisées.',
+    items: ['Git', 'GitHub', 'VS Code', 'Postman', 'Railway', 'Vercel'],
   },
   {
-    id: 'deploiement',
-    label: 'Déploiement',
-    code: '07',
-    items: ['Railway', 'Vercel'],
+    id: 'materiel',
+    label: 'Matériel & réseaux',
+    icon: 'fa-laptop',
+    desc: 'La machine et le réseau avant le code : maintenance et infrastructures.',
+    items: ['Maintenance PC', 'LAN / Wi-Fi', 'Sécurité réseau'],
   },
 ]
-
-export const lumoFeatures = [
-  'Gestion des utilisateurs',
-  'Authentification sécurisée',
-  'Gestion des rôles (RBAC)',
-  'Gestion des ventes',
-  'Gestion des achats',
-  'Gestion des stocks',
-  'Gestion des produits',
-  'Gestion des clients',
-  'Gestion des fournisseurs',
-  'Tableau de bord analytique',
-  'Statistiques',
-  'API REST + PostgreSQL',
-]
-
-export const lumoStack = ['React.js', 'Node.js', 'Express.js', 'PostgreSQL', 'Tailwind CSS', 'JWT', 'Google OAuth']
 
 export const timeline = [
   {
-    period: "2026",
-    title: 'Licence (Bac+3) en Technique de Maintenance',
+    period: '2026',
+    title: 'Licence en Technique de Maintenance (Bac+3)',
     place: 'ISIPA Matadi — Institut Supérieur d’Informatique, Programmation et Analyse',
-    type: 'formation',
     tag: 'Diplôme',
   },
   {
     period: '2022 – 2023',
-    title: 'Formation en Anglais — Niveaux 1 & 2',
-    place: 'Cours de langue',
-    type: 'formation',
+    title: 'Anglais — niveaux 1 et 2',
+    place: 'Formation en anglais général',
     tag: 'Langue',
   },
   {
     period: '2022',
-    title: 'Formation en Réseaux Informatiques — Niveau 1',
+    title: 'Réseaux informatiques — niveau 1',
     place: 'Formation technique',
-    type: 'formation',
     tag: 'Réseaux',
   },
   {
-    period: "Depuis plus d'un an",
-    title: 'Développement web — pratique continue',
-    place: 'Projets personnels & apprentissage permanent',
-    type: 'experience',
+    period: 'Depuis 2024',
+    title: 'Développement web — en pratique',
+    place: 'Projets personnels et applications concrètes',
     tag: 'Expérience',
   },
-]
-
-export const aboutParagraphs = [
-  "Je suis un développeur full stack basé à Matadi, en RDC. Ce qui me guide ? Construire des applications utiles, pensées pour les gens qui les utilisent — c'est l'esprit de LUMO, mon projet phare.",
-  "Je conçois et développe des applications complètes, du front-end React à la base PostgreSQL, en gardant toujours en tête la personne qui les utilisera — autant que la solidité du code.",
-  "Formé à l'ISIPA Matadi, je suis aussi technicien en maintenance informatique et passionné de réseaux. J'aime comprendre les systèmes dans leur ensemble — la machine, le réseau, le code — pour livrer des solutions simples et solides. Plus d'un an de pratique sur des projets personnels m'a appris à livrer, itérer et me remettre en question.",
 ]
