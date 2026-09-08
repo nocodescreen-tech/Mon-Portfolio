@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Float, Environment, ContactShadows } from '@react-three/drei'
+import { Float, ContactShadows } from '@react-three/drei'
 
 /** Drift caméra : profondeur liée au scroll + léger parallax souris. */
 function Rig() {
@@ -64,7 +64,7 @@ function Product() {
       {/* tore noué */}
       <mesh castShadow>
         <torusKnotGeometry args={[1.0, 0.3, 220, 30]} />
-        <meshStandardMaterial color="#ff5b2e" metalness={0.75} roughness={0.2} emissive="#5e1504" emissiveIntensity={0.35} />
+        <meshStandardMaterial color="#ff5b2e" metalness={0.55} roughness={0.28} emissive="#5e1504" emissiveIntensity={0.4} />
       </mesh>
       {/* anneau lumineux qui pulse */}
       <mesh ref={ring}>
@@ -95,6 +95,7 @@ export default function HeroSceneCanvas() {
       aria-hidden="true"
     >
       <ambientLight intensity={0.6} />
+      <hemisphereLight args={['#ffffff', '#241a16', 0.7]} />
       <directionalLight position={[4, 5, 3]} intensity={1.7} color="#ffffff" />
       <pointLight position={[-4, -2, 2]} intensity={1.2} color="#ff5b2e" />
       <pointLight position={[3, 2, 4]} intensity={0.5} color="#ffc9b3" />
@@ -106,7 +107,6 @@ export default function HeroSceneCanvas() {
       </Float>
 
       <ContactShadows position={[0, -2, 0]} opacity={0.45} scale={9} blur={2.8} far={3.2} color="#000000" />
-      <Environment preset="city" />
     </Canvas>
   )
 }

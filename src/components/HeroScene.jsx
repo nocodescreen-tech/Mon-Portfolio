@@ -37,9 +37,11 @@ export default function HeroScene() {
   // charger le canvas 3D uniquement quand la condition est OK
   useEffect(() => {
     if (isServer) return
+    const coarse = window.matchMedia('(pointer: coarse)').matches
     const noWebGL = !(document.createElement('canvas').getContext('webgl2') || document.createElement('canvas').getContext('webgl'))
 
-    if (noWebGL) {
+    // La 3D est lourde : on ne la charge que sur un vrai écran (souris) + WebGL.
+    if (coarse || noWebGL) {
       setMode('fallback')
       return
     }
