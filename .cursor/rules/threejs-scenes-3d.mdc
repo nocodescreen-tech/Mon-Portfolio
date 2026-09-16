@@ -1,0 +1,43 @@
+---
+description: Scènes 3D three.js/R3F — carrousels cards 3D, particules, shaders, post-processing, perf desktop/mobile
+globs: src/**/*.{jsx,tsx}
+alwaysApply: false
+---
+
+# Scènes 3D — three.js / React Three Fiber
+
+## Règles de base
+
+- Toute scène 3D via `<Canvas>` de `@react-three/fiber` + helpers `@react-three/drei` (`Float`, `Stars`, `ContactShadows`, `Environment`, `Html`)
+- Post-processing via `@react-three/postprocessing` uniquement (`EffectComposer` + `Bloom`, `Vignette`, `ChromaticAberration`) — **jamais** importer ces effets depuis `drei`
+- Animations dans `useFrame`, jamais `setInterval` sur des uniforms ; utiliser `state.clock.getElapsedTime()`
+- Interactivité souris via `state.pointer` (parallax, léger tilt), scroll via `useScroll` de framer-motion passé en props
+
+## Performance (critique)
+
+- 3D **desktop uniquement** : mobile (pointer coarse), pas de WebGL, ou reduced-motion → fallback statique léger (motif géométrique radial, cf. `HeroScene.jsx`)
+- `dpr` plafonné à 2, géométries low-poly (32 segments max), ≤ 3000 particules
+- Canvas en `lazy()` + `<Suspense>` avec fallback spinner
+- Le hero actuel est en **Canvas 2D "faux 3D"** (`HeroSceneCanvas.jsx`, ~10 kB, zéro lib) — si retour au vrai R3F, garder ce fichier comme fallback mobile
+
+## Patterns signature du portfolio
+
+- Tore + anneau + satellites orbitaux en orbite (identité visuelle "produit tech")
+- Palette 3D : `#ff5b2e`, `#ff8a4d`, `#ffc46b` sur fond graphite, émissive douce, `AdditiveBlending` pour les particules
+- Matériaux : `meshPhysicalMaterial` avec `clearcoat` pour le rendu premium, shader iridescent via `onBeforeCompile` si besoin
+
+## Carrousel cards 3D (CSS + framer-motion, pas de WebGL)
+
+```jsx
+<motion.div style={{ perspective: 1200 }}>
+  <motion.div
+    animate={{ rotateY: active * (360 / n) }}
+    transition={{ type: 'spring', stiffness: 60, damping: 16 }}
+    style={{ transformStyle: 'preserve-3d' }}
+  >
+    {items.map((it, i) => (
+      <motion.div key={i} style={{ transform: `rotateY(${i * (360 / n)}deg) translateZ(280px)` }} />
+    ))}
+  </motion.div>
+</motion.div>
+```

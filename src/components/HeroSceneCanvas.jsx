@@ -1,112 +1,175 @@
-import * as THREE from 'three'
-import { useRef } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
-import { Float, ContactShadows } from '@react-three/drei'
+import { useEffect, useRef } from 'react'
 
-/** Drift caméra : profondeur liée au scroll + léger parallax souris. */
-function Rig() {
-  useFrame((state) => {
-    const scroll = window.scrollY || 0
-    const { pointer } = state
-    // zoom-out très lent quand on descend dans la page
-    const targetZ = 6.4 + Math.min(scroll * 0.0006, 1.4)
-    state.camera.position.z = THREE.MathUtils.lerp(state.camera.position.z, targetZ, 0.04)
-    state.camera.position.x = THREE.MathUtils.lerp(state.camera.position.x, pointer.x * 0.35, 0.04)
-    state.camera.position.y = THREE.MathUtils.lerp(state.camera.position.y, 0.2 - pointer.y * 0.25, 0.04)
-    state.camera.lookAt(0, 0, 0)
-  })
-  return null
+const TAU = Math.PI * 2
+
+/** Rotation d'un point 3D autour de X puis Y. */
+function rot(p, rx, ry) {
+  let { x, y, z } = p
+  const cosX = Math.cos(rx), sinX = Math.sin(rx)
+  let y1 = y * cosX - z * sinX
+  let z1 = y * sinX + z * cosX
+  const cosY = Math.cos(ry), sinY = Math.sin(ry)
+  let x2 = x * cosY + z1 * sinY
+  let z2 = -x * sinY + z1 * cosY
+  return { x: x2, y: y1, z: z2 }
 }
 
-/** Objet produit — tore noué + anneau lumineux + petits satellites orbitaux. */
-function Product() {
-  const group = useRef(null)
-  const ring = useRef(null)
-  const sats = useRef(null)
-
-  useFrame((state, delta) => {
-    const t = state.clock.elapsedTime
-    if (group.current) {
-      const { pointer } = state
-      // rotation continue bien visible
-      group.current.rotation.y += delta * 0.5
-      // réagit à la souris
-      group.current.rotation.x = THREE.MathUtils.lerp(group.current.rotation.x, pointer.y * 0.4 + Math.sin(t * 0.8) * 0.15, 0.06)
-      group.current.rotation.z = THREE.MathUtils.lerp(group.current.rotation.z, pointer.x * 0.3, 0.06)
-      group.current.position.y = Math.sin(t * 0.9) * 0.12
-    }
-    // anneau qui pulse + tourne
-    if (ring.current) {
-      ring.current.rotation.z += delta * 0.4
-      const s = 1 + Math.sin(t * 1.4) * 0.04
-      ring.current.scale.set(s, s, 1)
-      ring.current.material.emissiveIntensity = 1 + Math.sin(t * 1.6) * 0.4
-    }
-    // satellites orbitaux
-    if (sats.current) {
-      sats.current.children.forEach((sat, i) => {
-        const ang = t * 0.8 + (i * Math.PI * 2) / sats.current.children.length
-        sat.position.set(Math.cos(ang) * 2.1, Math.sin(ang * 0.7) * 0.6, Math.sin(ang) * 2.1)
-        sat.rotation.x += delta * 1.2
-        sat.rotation.y += delta * 0.9
-      })
-    }
-  })
-
-  const satsData = [
-    { color: '#ff8a4d', size: 0.16 },
-    { color: '#ffc46b', size: 0.12 },
-    { color: '#c93a12', size: 0.14 },
-  ]
-
-  return (
-    <group ref={group}>
-      {/* tore noué */}
-      <mesh castShadow>
-        <torusKnotGeometry args={[1.0, 0.3, 220, 30]} />
-        <meshStandardMaterial color="#ff5b2e" metalness={0.55} roughness={0.28} emissive="#5e1504" emissiveIntensity={0.4} />
-      </mesh>
-      {/* anneau lumineux qui pulse */}
-      <mesh ref={ring}>
-        <torusGeometry args={[1.65, 0.05, 16, 72]} />
-        <meshStandardMaterial color="#ff8a4d" emissive="#ff5b2e" emissiveIntensity={1.2} metalness={0.4} roughness={0.3} />
-      </mesh>
-      {/* satellites */}
-      <group ref={sats}>
-        {satsData.map((s, i) => (
-          <mesh key={i} castShadow>
-            <icosahedronGeometry args={[s.size, 0]} />
-            <meshStandardMaterial color={s.color} emissive={s.color} emissiveIntensity={0.6} metalness={0.6} roughness={0.3} />
-          </mesh>
-        ))}
-      </group>
-    </group>
-  )
-}
-
-/** Canvas de la scène 3D — animations continues + drift caméra au scroll. */
+/**
+ * HeroSceneCanvas — « faux » 3D en Canvas 2D (aucune lib, ~10 kB).
+ * Un tore en points, un anneau pulsant et des satellites orbitent ;
+ * l'ensemble suit le curseur et recule très légèrement au scroll.
+ * Tailles en pixels fixes (pas multipliées par l'échelle de projection).
+ */
 export default function HeroSceneCanvas() {
+  const wrapRef = useRef(null)
+  const canvasRef = useRef(null)
+
+  useEffect(() => {
+    const wrap = wrapRef.current
+    const canvas = canvasRef.current
+    if (!wrap || !canvas) return
+    const ctx = canvas.getContext('2d')
+
+    let W = 0, H = 0, dpr = 1
+    let raf = 0
+    const pointer = { x: 0, y: 0 }
+    let scrollY = 0
+
+    // tore en grille de points (coords 3D unitaires)
+    const R = 1.15, r = 0.4
+    const NU = 46, NV = 24
+    const torus = []
+    for (let i = 0; i < NU; i++) {
+      for (let j = 0; j < NV; j++) {
+        const u = (i / NU) * TAU
+        const v = (j / NV) * TAU
+        torus.push({
+          x: (R + r * Math.cos(v)) * Math.cos(u),
+          y: r * Math.sin(v),
+          z: (R + r * Math.cos(v)) * Math.sin(u),
+        })
+      }
+    }
+    const sats = [0, 1, 2].map((i) => ({ phase: (i / 3) * TAU }))
+
+    const resize = () => {
+      const rect = wrap.getBoundingClientRect()
+      dpr = Math.min(window.devicePixelRatio || 1, 2)
+      W = rect.width
+      H = rect.height
+      canvas.width = W * dpr
+      canvas.height = H * dpr
+      canvas.style.width = `${W}px`
+      canvas.style.height = `${H}px`
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
+
+    const onPointer = (e) => {
+      const rect = wrap.getBoundingClientRect()
+      pointer.x = ((e.clientX - rect.left) / rect.width - 0.5) * 2
+      pointer.y = ((e.clientY - rect.top) / rect.height - 0.5) * 2
+    }
+    const onScroll = () => { scrollY = window.scrollY }
+
+    resize()
+    window.addEventListener('resize', resize)
+    wrap.addEventListener('pointermove', onPointer, { passive: true })
+    window.addEventListener('scroll', onScroll, { passive: true })
+
+    const dist = 4.4
+
+    const draw = (t) => {
+      ctx.clearRect(0, 0, W, H)
+      const cx = W / 2
+      const cy = H / 2 + 10
+      // échelle de projection = pixels par unité 3D
+      const f = Math.min(W, H) * 0.42
+
+      const ry = t * 0.5
+      const rx = 0.45 + pointer.y * 0.3
+      const rz = pointer.x * 0.22
+      const zoom = 1 - Math.min(scrollY * 0.0012, 0.35)
+
+      const project = (p) => {
+        let q = rot(p, rx, ry)
+        const c = Math.cos(rz), s = Math.sin(rz)
+        const qx = q.x * c - q.y * s
+        const qy = q.x * s + q.y * c
+        const scale = (f * zoom) / (q.z + dist)
+        return { x: cx + qx * scale, y: cy - qy * scale, depth: (q.z + dist) / (dist + 1.6) }
+      }
+
+      // anneau (dans le plan, pulse)
+      const ringR = 1.7 * (1 + Math.sin(t * 1.4) * 0.04)
+      const ringPts = []
+      for (let a = 0; a <= 72; a++) {
+        ringPts.push(project({ x: Math.cos(a / 72 * TAU) * ringR, y: Math.sin(a / 72 * TAU) * ringR, z: 0 }))
+      }
+      ctx.strokeStyle = 'rgba(255,138,77,0.55)'
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ringPts.forEach((pt, i) => (i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)))
+      ctx.stroke()
+
+      // satellites orbitaux (tailles en pixels fixes)
+      sats.forEach((sat) => {
+        const ang = t * 0.9 + sat.phase
+        const pos = project({
+          x: Math.cos(ang) * 2.2,
+          y: Math.sin(ang * 0.7) * 0.6,
+          z: Math.sin(ang) * 2.2,
+        })
+        const glow = 10
+        const g = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, glow * 2)
+        g.addColorStop(0, 'rgba(255,138,77,0.95)')
+        g.addColorStop(1, 'rgba(255,138,77,0)')
+        ctx.fillStyle = g
+        ctx.beginPath()
+        ctx.arc(pos.x, pos.y, glow * 2, 0, TAU)
+        ctx.fill()
+        ctx.fillStyle = '#ffc46b'
+        ctx.beginPath()
+        ctx.arc(pos.x, pos.y, 4, 0, TAU)
+        ctx.fill()
+      })
+
+      // tore en points (taille/opacité liées à la profondeur, pas à l'échelle)
+      torus.forEach((p) => {
+        const pt = project(p)
+        const near = Math.max(0, Math.min(1, 1 - pt.depth)) // plus proche → plus clair
+        const size = 1.1 + near * 1.4
+        ctx.fillStyle = `rgba(255,${Math.round(110 + near * 40)},${Math.round(70 + near * 20)},${0.3 + near * 0.7})`
+        ctx.beginPath()
+        ctx.arc(pt.x, pt.y, size, 0, TAU)
+        ctx.fill()
+      })
+
+      // cœur flamme qui pulse (rayon en pixels fixes)
+      const core = project({ x: 0, y: 0, z: 0 })
+      const crad = 18 + Math.sin(t * 2) * 3
+      const cg = ctx.createRadialGradient(core.x, core.y, 0, core.x, core.y, crad * 3)
+      cg.addColorStop(0, 'rgba(255,91,46,0.85)')
+      cg.addColorStop(1, 'rgba(255,91,46,0)')
+      ctx.fillStyle = cg
+      ctx.beginPath()
+      ctx.arc(core.x, core.y, crad * 3, 0, TAU)
+      ctx.fill()
+
+      raf = requestAnimationFrame(draw)
+    }
+
+    raf = requestAnimationFrame(draw)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', resize)
+      window.removeEventListener('scroll', onScroll)
+      wrap.removeEventListener('pointermove', onPointer)
+    }
+  }, [])
+
   return (
-    <Canvas
-      dpr={[1, 1.5]}
-      camera={{ position: [0, 0.2, 6.4], fov: 40 }}
-      gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-      style={{ width: '100%', height: '100%' }}
-      aria-hidden="true"
-    >
-      <ambientLight intensity={0.6} />
-      <hemisphereLight args={['#ffffff', '#241a16', 0.7]} />
-      <directionalLight position={[4, 5, 3]} intensity={1.7} color="#ffffff" />
-      <pointLight position={[-4, -2, 2]} intensity={1.2} color="#ff5b2e" />
-      <pointLight position={[3, 2, 4]} intensity={0.5} color="#ffc9b3" />
-
-      <Rig />
-
-      <Float speed={1.4} rotationIntensity={0.25} floatIntensity={0.8}>
-        <Product />
-      </Float>
-
-      <ContactShadows position={[0, -2, 0]} opacity={0.45} scale={9} blur={2.8} far={3.2} color="#000000" />
-    </Canvas>
+    <div ref={wrapRef} className="relative h-full w-full" aria-hidden="true">
+      <canvas ref={canvasRef} className="block h-full w-full" />
+    </div>
   )
 }

@@ -1,0 +1,37 @@
+---
+description: Émotion visuelle & micro-interactions — boutons magnétiques, text reveal, spotlight, glow, transitions de pages, feedback utilisateur
+alwaysApply: true
+---
+
+# Émotion visuelle & micro-interactions
+
+Objectif : chaque interaction doit donner une **réponse immédiate, fluide et mémorable** (niveau 21st.dev pro).
+
+## Micro-interactions obligatoires
+
+- **Boutons** : `whileHover={{ scale: 1.03, y: -2 }}`, `whileTap={{ scale: 0.97 }}`, glow `boxShadow` accent au hover, flèche qui se déplace (`group-hover:translate-x-1`)
+- **Boutons magnétiques** : suivre le curseur à ±6px max via `useMotionValue` + `useSpring` sur `motionX/motionY`
+- **Cards projets** : lift au hover, bordure gradient animée, spotlight radial suivant la souris (`useMotionTemplate` sur `background`)
+- **Liens nav** : underline/sliding pill animée (`layoutId` de framer-motion)
+
+## Reveals de contenu
+
+- Titres : reveal par mot ou par ligne (`overflow-hidden` + `y: '100%'` → 0), stagger 60ms
+- Sections : `whileInView` + `viewport={{ once: true }}` — jamais tout visible d'un coup au chargement
+- Chiffres/stats : compteur animé (`useSpring` + `useTransform`, formatage fr-FR)
+
+## Feedback & transitions
+
+- Changement de vue/onglet : `AnimatePresence` avec `mode='wait'` + fade/slide court (0.25s)
+- Toasts de confirmation via `sonner` (jamais `alert()`)
+- Curseur personnalisé discret sur desktop (dot + ring spring), désactivé si `pointer: coarse`
+
+## Émotion & ambiance
+
+- Palette émotionnelle graphite + flamme : `--accent` #ff5b2e (énergie), contrastes forts, halos radiaux subtils (`radial-gradient` à 8–14% d'opacité)
+- Grain/noise léger (≤ 2% opacité) pour la profondeur, dégradés animés lents (8–15s) en fond
+- Respect `prefers-reduced-motion` partout : version statique élégante, jamais de mouvement indispensable à la compréhension
+
+## Interdits
+
+- Animations qui bloquent (délais > 1s avant interaction), bounce exagéré (stiffness > 400), plus de 2 effets simultanés sur le même élément, transitions linéaires mécaniques (toujours un easing expressif).

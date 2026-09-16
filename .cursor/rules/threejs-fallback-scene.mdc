@@ -1,0 +1,29 @@
+---
+description: Scène hero 3D légère et flottante avec cursor-driven lighting
+alwaysApply: false
+globs: src/**/*.{jsx,tsx}
+---
+
+# Hero Scene — "Floating" Lighter 3D
+
+## Spécifications
+
+- **`<Canvas>`** : 3D desktop uniquement (fallback Canvas 2D pour mobile / ES Module-only)
+- **Objet central** : plan flottant (ou sphère) pas un tore — < 1000 vertices
+- **Lighting** : ambient + directional + `cursor-follow` léger (pas de postprocessing lourd)
+- **Performance** : DPR max 2, shadow map low-res (512x512), anim sans `setInterval`
+- **Framer-logic** : `useFrame` pour suivre souris → camera autour obej
+
+## Exemple
+
+```tsx
+<Canvas camera={{ position: [0, 0, 6], fov: 35 }}>
+  <color attach="background" args={['var(--bg)']} />
+  <AmbientLight intensity={0.6} />
+  <directionalLight position={[5, 5, 5]} intensity={0.8} />
+  <mesh position={cursorCorrected}>
+    <sphereGeometry args={[0.8, 32, 32]} />
+    <meshStandardMaterial color="var(--accent)" />
+  </mesh>
+</Canvas>
+```
