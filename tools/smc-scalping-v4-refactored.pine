@@ -1,0 +1,1272 @@
+//@version=5
+// ════════════════════════════════════════════════════════════════════
+//  SMC Scalping v4 — ICT 2022 MODEL séquentiel
+//
+//  LA SÉQUENCE (chaque étape valide la précédente, dans l'ordre) :
+//    ① Pool de liquidité  → un niveau qui a tenu, des stops s'accumulent
+//    ② Sweep              → la mèche prend le pool, le corps revient
+//    ③ Déplacement        → mouvement impulsif qui laisse un FVG
+//    ④ MSS / CHoCH        → la structure casse dans le nouveau sens
+//    ⑤ Entrée dans le FVG → limite au CE (50 % du gap)
+//    ⑥ Cible              → la liquidité OPPOSÉE
+//
+//  Une étape hors séquence = pas de trade. C'est tout l'intérêt :
+//  un sweep sans MSS n'est qu'une observation, un MSS sans sweep est
+//  un breakout en retard.
+//
+//  Hérité de v3 : structure unifiée, jambe verrouillée, mitigation en
+//  2 temps, adaptation multi-paires.
+// ════════════════════════════════════════════════════════════════════
+indicator("SMC v4 — ICT 2022 Model (Pool→Sweep→MSS→FVG→Cible)", overlay=true, max_boxes_count=500, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// TIMEFRAME
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+gTF = "Filtre Timeframe"
+scalpOnly = input.bool(true, "Tracer uniquement en TF scalping", group=gTF)
+maxTfMin = input.int(15, "Timeframe max en minutes", minval=1, maxval=60, group=gTF)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ADAPTATION MULTI-PAIRES  (nouveau)
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+gUni = "Adaptation multi-paires"
+autoSwing = input.bool(true, "Swing length automatique selon le TF", group=gUni, tooltip="M1-M3 → 2, M5-M15 → 3, au-dessus → 5. Un swing fixe sur-détecte en M1 et sous-détecte en H1.")
+useVolFloor = input.bool(true, "Ignorer les marchés trop calmes", group=gUni, tooltip="Si l'ATR représente moins de X% du prix, l'actif ne bouge pas assez pour payer le spread.")
+minAtrPct = input.float(0.02, "ATR minimum en % du prix", minval=0.0, step=0.01, group=gUni)
+useSession = input.bool(false, "Filtrer par session", group=gUni, tooltip="Forex/indices : n'activer que Londres et New York. À laisser désactivé en crypto (marché 24/7).")
+sessTime = input.session("0700-1600", "Session (heure du graphique)", group=gUni)
+
+gHTF = "Biais Higher Timeframe"
+useHTF = input.bool(true, "Filtrer par biais HTF", group=gHTF, tooltip="Remplace le filtre EMA local, qui interdisait mécaniquement les retournements.")
+htfRes = input.timeframe("60", "Timeframe du biais", group=gHTF)
+htfEmaLen = input.int(50, "EMA du biais HTF", minval=1, group=gHTF)
+htfMode = input.string("Continuation seulement", "Appliquer le biais à", options=["Continuation seulement", "Tout", "Rien"], group=gHTF, tooltip="« Continuation seulement » : le BOS doit suivre le biais HTF, mais un CHoCH contre-tendance reste autorisé. C'est le réglage correct.")
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ORDER BLOCKS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+gOB = "Order Blocks"
+showBullOB = input.bool(true, "Afficher Bullish OB", group=gOB)
+showBearOB = input.bool(true, "Afficher Bearish OB", group=gOB)
+swingLenManual = input.int(3, "Swing length (si auto désactivé)", minval=1, maxval=20, group=gOB)
+obLookback = input.int(12, "Recherche dernière bougie OB", minval=2, maxval=50, group=gOB)
+obRange = input.string("Corps + mèche", "Plage de l'OB", options=["Corps + mèche", "Corps seul"], group=gOB, tooltip="Le corps est le noyau haute probabilité. La mèche donne une zone plus large, donc un stop plus loin.")
+obNeedSweep = input.bool(true, "Exiger un sweep avant l'OB", group=gOB, tooltip="Critère n°1 de validité d'un OB : sans prise de liquidité préalable, c'est une bougie quelconque.")
+obNeedFVG = input.bool(false, "Exiger un FVG dans le déplacement", group=gOB, tooltip="Critère de déplacement institutionnel : le mouvement doit laisser une inefficience.")
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FAIR VALUE GAPS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+gFVG = "Fair Value Gaps"
+showBullFVG = input.bool(true, "Afficher Bullish FVG", group=gFVG)
+showBearFVG = input.bool(true, "Afficher Bearish FVG", group=gFVG)
+minFvgAtr = input.float(0.15, "Taille minimum FVG en ATR", minval=0.0, step=0.05, group=gFVG)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FILTRES
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+gF = "Filtres de fiabilité"
+atrLen = input.int(14, "ATR length", minval=1, group=gF)
+useDisplacement = input.bool(true, "Filtrer par bougie impulsive", group=gF)
+dispAtr = input.float(0.6, "Corps minimum en ATR", minval=0.1, step=0.1, group=gF)
+useVolumeFilter = input.bool(false, "Filtre volume", group=gF)
+volLen = input.int(20, "Volume moyenne", minval=1, group=gF)
+volMult = input.float(1.2, "Volume x moyenne", minval=0.1, step=0.1, group=gF)
+showEMA = input.bool(true, "Afficher l'EMA de référence", group=gF)
+emaLen = input.int(50, "EMA", minval=1, group=gF)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// GESTION DES ZONES
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+gM = "Gestion des zones"
+maxZones = input.int(25, "Nombre max de zones par type", minval=1, maxval=100, group=gM)
+mitigMode = input.string("Corps traverse", "Invalider la zone quand", options=["Corps traverse", "Mèche touche"], group=gM, tooltip="« Corps traverse » suit la règle SMC : une mèche qui perce n'invalide pas, seule une clôture au-delà le fait.")
+markTouched = input.bool(true, "Griser la zone au premier contact", group=gM, tooltip="La zone touchée reste visible et exploitable pour le signal, mais est marquée comme mitigée.")
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STRUCTURE
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+gS = "Structure CHoCH / BOS"
+showStruct = input.bool(true, "Afficher CHoCH et BOS", group=gS)
+structNeedDisp = input.bool(true, "Exiger un déplacement sur la cassure", group=gS, tooltip="Une cassure sans déplacement est une prise de liquidité, pas un changement de structure.")
+maxStructLines = input.int(12, "Nombre max de lignes structure", minval=1, maxval=60, group=gS)
+maxBosLines = input.int(8, "Nombre max de BOS / CHoCH affichés", minval=1, maxval=40, group=gS, tooltip="Quota dédié : les BOS/CHoCH ne sont plus évincés par les pools et EQH/EQL.")
+bosWidth = input.int(2, "Épaisseur du trait BOS / CHoCH", minval=1, maxval=4, group=gS)
+showBosPivot = input.bool(true, "Marquer le pivot d'origine (point A)", group=gS, tooltip="Un point sur le sommet/creux cassé, pour lire le segment A→B d'un coup d'œil.")
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LIQUIDITÉ
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+gL = "Liquidité"
+showSweep = input.bool(true, "Afficher les prises de liquidité", group=gL)
+sweepValid = input.int(20, "Validité d'un sweep (bougies)", minval=1, maxval=200, group=gL)
+sweepWickRatio = input.float(0.45, "Mèche min. du range de la bougie", minval=0.0, maxval=1.0, step=0.05, group=gL)
+showEQ = input.bool(true, "Afficher EQH / EQL", group=gL)
+eqTolAtr = input.float(0.10, "Tolérance EQH/EQL en ATR", minval=0.01, step=0.01, group=gL)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FIBONACCI / OTE
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+gFib = "Fibonacci / OTE"
+showFib = input.bool(true, "Afficher le Fibonacci", group=gFib)
+fibAnchor = input.string("Sweep -> Cassure", "Ancrage", options=["Sweep -> Cassure", "Swing -> Cassure"], group=gFib)
+lockLeg = input.bool(true, "Verrouiller la jambe au retracement", group=gFib, tooltip="CRUCIAL : sans ce verrou, la jambe s'étend à chaque nouveau sommet et la zone OTE se déplace en permanence. Impossible de poser un ordre limite.")
+lockAfter = input.float(0.236, "Verrouiller après un retracement de", minval=0.05, maxval=0.5, step=0.018, group=gFib)
+oteLow = input.float(0.62, "OTE - début", minval=0.3, maxval=0.95, step=0.005, group=gFib)
+oteHigh = input.float(0.79, "OTE - fin", minval=0.3, maxval=0.99, step=0.005, group=gFib)
+sweetSpot = input.float(0.705, "Sweet spot (entrée)", minval=0.3, maxval=0.95, step=0.005, group=gFib)
+showOTE = input.bool(true, "Afficher la zone OTE", group=gFib)
+showTargets = input.bool(true, "Afficher -0.27 / -0.62", group=gFib)
+fibExtendBars = input.int(14, "Extension des lignes", minval=0, maxval=120, group=gFib)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SIGNAUX
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ─── ICT 2022 MODEL ───
+g22 = "ICT 2022 Model (séquence complète)"
+use22 = input.bool(true, "Activer le modèle séquentiel", group=g22, tooltip="Pool → Sweep → Déplacement → MSS → FVG → Cible. Chaque étape doit valider la précédente.")
+poolMinTouch = input.int(2, "Touches min. pour valider un pool", minval=1, maxval=10, group=g22, tooltip="Un niveau frais n'a pas assez de stops empilés. 2 touches ou plus = vraie poche de liquidité.")
+poolTolAtr = input.float(0.15, "Tolérance d'une touche (ATR)", minval=0.01, step=0.05, group=g22)
+poolLookback = input.int(100, "Profondeur de recherche des pools", minval=20, maxval=400, group=g22)
+maxSweepToMSS = input.int(12, "Bougies max entre sweep et MSS", minval=1, maxval=60, group=g22, tooltip="Au-delà, le sweep et la cassure ne font plus partie du même mouvement.")
+maxMSSToFVG = input.int(8, "Bougies max entre MSS et FVG", minval=1, maxval=30, group=g22)
+entryMode = input.string("CE (50% du FVG)", "Niveau d'entrée dans le FVG", options=["CE (50% du FVG)", "Bord proche (conservateur)", "Bord lointain (agressif)"], group=g22, tooltip="Le CE est le milieu du gap : les livraisons profondes y vont très souvent avant de repartir.")
+fvgPick = input.string("Le plus proche de l'origine", "Si plusieurs FVG", options=["Le plus proche de l'origine", "Le plus proche du prix"], group=g22)
+stopBuffer = input.float(0.25, "Tampon du stop (ATR)", minval=0.0, step=0.05, group=g22, tooltip="Le stop va au-delà de la mèche du sweep, plus ce tampon.")
+setupExpiry = input.int(30, "Expiration d'un setup non déclenché", minval=5, maxval=200, group=g22)
+show22Zones = input.bool(true, "Afficher la zone d'entrée et le CE", group=g22)
+show22Levels = input.bool(true, "Afficher stop et cibles", group=g22)
+showPools = input.bool(true, "Afficher les pools de liquidité", group=g22)
+
+// ─── LISIBILITÉ ───
+gClean = "Lisibilité du graphique"
+showSweepLbl = input.bool(true, "Afficher les labels LQ (sweeps)", group=gClean)
+maxPoolLbl = input.int(2, "Labels de pools affichés (de chaque côté)", minval=0, maxval=10, group=gClean, tooltip="0 = aucun label de pool, les lignes restent.")
+showStructLbl = input.bool(true, "Afficher les labels CHoCH / BOS", group=gClean)
+showZoneText = input.bool(true, "Écrire le nom dans les zones (OB/FVG)", group=gClean, tooltip="Nomme chaque zone : OB BULLISH, OB BEARISH, FVG BULLISH, FVG BEARISH.")
+zoneTextSize = input.string("Petit", "Taille du texte des zones", options=["Minuscule", "Petit", "Normal"], group=gClean)
+zoneTextMinAtr = input.float(0.10, "Hauteur min. pour écrire le texte (ATR)", minval=0.0, step=0.05, group=gClean, tooltip="0 = toujours écrire. Doit rester sous la taille minimum des FVG, sinon ils restent muets.")
+zoneTextAlign = input.string("Gauche", "Position du texte", options=["Gauche", "Centre", "Droite"], group=gClean)
+zoneExtend = input.int(20, "Longueur des zones (bougies)", minval=0, maxval=300, group=gClean, tooltip="0 = prolonger à l'infini comme avant. Une valeur finie empêche les zones de barrer tout l'écran.")
+fadeOldZones = input.bool(true, "Atténuer les zones anciennes", group=gClean)
+
+// ─── BREAKER / UNICORN ───
+gBrk = "Breaker Blocks & Unicorn"
+useBreakers = input.bool(true, "Détecter les Breaker Blocks", group=gBrk, tooltip="Un OB dont le corps a été traversé inverse sa polarité : les ordres ont été absorbés.")
+showBreakers = input.bool(true, "Afficher les breakers", group=gBrk)
+maxBreakers = input.int(6, "Nombre max de breakers", minval=1, maxval=30, group=gBrk)
+useUnicorn = input.bool(true, "Détecter le modèle Unicorn", group=gBrk, tooltip="FVG chevauchant un breaker de même sens. Proximité ne suffit pas, il faut une intersection réelle.")
+unicornMinPct = input.float(10.0, "Chevauchement minimum (%)", minval=1.0, maxval=100.0, step=5.0, group=gBrk)
+unicornMaxGap = input.int(5, "Bougies max entre breaker et FVG", minval=1, maxval=30, group=gBrk, tooltip="Impose que les deux structures viennent du même déplacement.")
+
+// ─── MODÈLE OB (retour dans l'Order Block) ───
+gOBT = "Modèle OB — trade sur retour en zone"
+useOBTrade = input.bool(true, "Activer le trade sur Order Block", group=gOBT, tooltip="Quatrième modèle, indépendant du 2022 et de l'Unicorn : on attend le RETOUR du prix dans un OB frais et on entre à la réaction.")
+obEntryMode = input.string("CE (50% de l'OB)", "Niveau d'entrée dans l'OB", options=["CE (50% de l'OB)", "Bord proche (conservateur)", "Bord lointain (agressif)"], group=gOBT)
+obFreshOnly = input.bool(true, "OB non mitigé uniquement", group=gOBT, tooltip="Une zone déjà touchée a perdu l'essentiel de ses ordres en attente.")
+obNeedReaction = input.bool(true, "Exiger une bougie de réaction", group=gOBT, tooltip="Le prix doit REJETER la zone (clôture dans le bon sens), pas seulement la traverser.")
+obStopBuffer = input.float(0.25, "Tampon du stop (ATR)", minval=0.0, step=0.05, group=gOBT)
+obTargetMode = input.string("Pool opposé", "Cible", options=["Pool opposé", "Multiple de R", "Liquidité interne"], group=gOBT)
+obRMult = input.float(2.0, "Multiple de R (si choisi)", minval=0.5, step=0.5, group=gOBT)
+obAlignHTF = input.bool(true, "Aligner au biais HTF", group=gOBT)
+obMinRR = input.float(1.5, "RR minimum", minval=0.0, step=0.5, group=gOBT)
+
+// ─── KILLZONES ICT ───
+gKZ = "Killzones ICT (heure de New York)"
+useKZ = input.bool(true, "Filtrer par killzone", group=gKZ, tooltip="Les fenêtres où la participation institutionnelle est concentrée. Hors killzone, le modèle 2022 est nettement moins fiable.")
+kzLondon = input.bool(true, "London  02:00-05:00", group=gKZ)
+kzNYam = input.bool(true, "New York AM  07:00-10:00", group=gKZ)
+kzSilver = input.bool(true, "Silver Bullet  10:00-11:00", group=gKZ)
+kzNYpm = input.bool(false, "New York PM  13:30-16:00", group=gKZ)
+kzAsia = input.bool(false, "Asie  20:00-00:00", group=gKZ)
+kzShade = input.bool(true, "Ombrer le fond pendant les killzones", group=gKZ)
+
+gSig = "Signaux A+"
+showSignals = input.bool(true, "Afficher les entrées A+", group=gSig)
+reqSweep = input.bool(true, "Exiger une prise de liquidité", group=gSig)
+reqOTE = input.bool(true, "Exiger le prix dans l'OTE", group=gSig)
+reqOB = input.bool(true, "Exiger le prix dans un OB", group=gSig)
+reqPD = input.bool(true, "Exiger Discount / Premium", group=gSig)
+minRR = input.float(2.0, "RR minimum exigé", minval=0.0, step=0.5, group=gSig, tooltip="Calculé entre l'entrée (sweet spot), le stop (au-delà du 1.0) et la cible 0. En dessous, le signal est filtré.")
+signalCooldown = input.int(5, "Bougies min. entre 2 signaux", minval=1, maxval=100, group=gSig)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CALCULS DE BASE
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+tfSec = timeframe.in_seconds(timeframe.period)
+tfMin = tfSec / 60.0
+
+// Swing length adaptatif : un pivot de 3 en M1 n'a pas le même sens qu'en H1
+swingLen = autoSwing ? (tfMin <= 3 ? 2 : tfMin <= 15 ? 3 : 5) : swingLenManual
+
+atr = ta.atr(atrLen)
+atrPct = close > 0 ? atr / close * 100 : 0.0
+emaRef = ta.ema(close, emaLen)
+
+// Biais HTF — décalé de 1 barre pour ne jamais repeindre
+htfEma = request.security(syminfo.tickerid, htfRes, ta.ema(close, htfEmaLen)[1], lookahead=barmerge.lookahead_off)
+htfClose = request.security(syminfo.tickerid, htfRes, close[1], lookahead=barmerge.lookahead_off)
+int htfBias = not useHTF or na(htfEma) or na(htfClose) ? 0 : htfClose > htfEma ? 1 : -1
+
+inSession = not useSession or not na(time(timeframe.period, sessTime))
+
+// ─── KILLZONES : fenêtres horaires ancrées sur New York ───
+// On passe par le fuseau "America/New_York" pour que les plages restent
+// correctes quel que soit le fuseau du graphique et malgré l'heure d'été.
+f_inKZ(string spec) =>
+    not na(time(timeframe.period, spec, "America/New_York"))
+
+bool kzL = kzLondon and f_inKZ("0200-0500")
+bool kzA = kzNYam and f_inKZ("0700-1000")
+bool kzS = kzSilver and f_inKZ("1000-1100")
+bool kzP = kzNYpm and f_inKZ("1330-1600")
+bool kzAs = kzAsia and f_inKZ("2000-2400")
+
+bool inKZ = not useKZ or kzL or kzA or kzS or kzP or kzAs
+string kzName = kzS ? "Silver Bullet" : kzA ? "NY AM" : kzL ? "London" : kzP ? "NY PM" : kzAs ? "Asie" : "—"
+volOK_floor = not useVolFloor or atrPct >= minAtrPct
+
+activeTF = (not scalpOnly or tfSec <= maxTfMin * 60) and inSession and volOK_floor
+
+body = math.abs(close - open)
+displacementOK = not useDisplacement or body >= atr * dispAtr
+
+midBody = math.abs(close[1] - open[1])
+fvgDisplacementOK = not useDisplacement or midBody >= atr[1] * dispAtr
+
+smaVol = ta.sma(volume, volLen)
+volAvailable = not na(volume) and not na(smaVol)
+volumeOK = not useVolumeFilter or (volAvailable ? volume > smaVol * volMult : true)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// COULEURS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// OB = zones d'ordres, couleurs SATURÉES (vert / rouge francs)
+// FVG = inefficiences, couleurs FROIDES (bleu / violet)
+// Les deux familles ne doivent jamais se confondre à l'œil.
+bullOBBg = color.new(#26a69a, 80)
+bullOBBorder = color.new(#26a69a, 0)
+bearOBBg = color.new(#ef5350, 80)
+bearOBBorder = color.new(#ef5350, 0)
+bullFVGBg = color.new(#42a5f5, 86)
+bullFVGBorder = color.new(#42a5f5, 25)
+bearFVGBg = color.new(#ab47bc, 86)
+bearFVGBorder = color.new(#ab47bc, 25)
+touchedBg = color.new(color.gray, 90)
+touchedBorder = color.new(color.gray, 45)
+cBOS = color.new(#9aa4b2, 0)
+cCHoCH = color.new(color.fuchsia, 0)
+cSweep = color.new(color.yellow, 0)
+cEQ = color.new(color.yellow, 40)
+cFib = color.new(color.gray, 35)
+cFibKey = color.new(color.white, 20)
+cOTEBg = color.new(color.purple, 84)
+cOTEBorder = color.new(color.purple, 25)
+cTarget = color.new(color.lime, 25)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STOCKAGE DES ZONES
+//   Tableaux parallèles : box + état "touché"
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+var box[] bullOBs = array.new_box()
+var bool[] bullOBTouched = array.new_bool()
+var box[] bearOBs = array.new_box()
+var bool[] bearOBTouched = array.new_bool()
+var box[] bullFVGs = array.new_box()
+var bool[] bullFVGTouched = array.new_bool()
+var box[] bearFVGs = array.new_box()
+var bool[] bearFVGTouched = array.new_bool()
+
+var line[] structLines = array.new_line()      // pools, EQH/EQL, sweeps
+var label[] structLabels = array.new_label()
+var line[] bosLines = array.new_line()        // BOS / CHoCH uniquement
+var label[] bosLabels = array.new_label()     // (sinon les pools les évinçaient)
+var line[] fibLines = array.new_line()
+var label[] fibLabels = array.new_label()
+var box oteBox = na
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FONCTIONS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+f_addBox(box[] arr, bool[] flags, int leftBar, float topPrice, float bottomPrice, color bg, color border, string txt) =>
+    float topFinal = math.max(topPrice, bottomPrice)
+    float botFinal = math.min(topPrice, bottomPrice)
+
+    if not na(leftBar) and not na(topFinal) and not na(botFinal) and topFinal > botFinal
+        // Longueur finie par défaut : une zone qui traverse tout l'écran
+        // masque le prix au lieu de l'informer.
+        int rightBar = zoneExtend > 0 ? bar_index + zoneExtend : bar_index
+        string zsz = zoneTextSize == "Minuscule" ? size.tiny : zoneTextSize == "Normal" ? size.normal : size.small
+        string zal = zoneTextAlign == "Centre" ? text.align_center : zoneTextAlign == "Droite" ? text.align_right : text.align_left
+        // Une zone plus fine que 0.3 ATR ne peut pas contenir de texte
+        // lisible : on la laisse muette plutôt que d'afficher une bouillie.
+        bool tall = (topFinal - botFinal) >= atr * zoneTextMinAtr
+        string zTxt = showZoneText and tall ? txt : ""
+        box b = box.new(left=leftBar, top=topFinal, right=rightBar, bottom=botFinal, xloc=xloc.bar_index, extend=zoneExtend > 0 ? extend.none : extend.right, bgcolor=bg, border_color=border, border_width=1, text=zTxt, text_color=border, text_size=zsz, text_halign=zal, text_valign=text.align_center)
+        array.push(arr, b)
+        array.push(flags, false)
+
+        if array.size(arr) > maxZones
+            bool droppedFlag = array.shift(flags)
+            box.delete(array.shift(arr))
+
+// Mitigation en 2 temps :
+//   - premier contact  -> marquée "touchée" (grisée) mais CONSERVÉE
+//   - corps au-delà    -> invalidée, supprimée
+f_manageZones(box[] arr, bool[] flags, bool isBullishZone) =>
+    int sz = array.size(arr)
+
+    if sz > 0
+        for n = 0 to sz - 1
+            int i = sz - 1 - n
+
+            if i >= 0 and i < array.size(arr)
+                box b = array.get(arr, i)
+                float zTop = box.get_top(b)
+                float zBot = box.get_bottom(b)
+                int bornBar = box.get_left(b)
+                bool canCheck = bar_index > bornBar + 1
+
+                bool touched = isBullishZone ? low <= zTop and high >= zBot : high >= zBot and low <= zTop
+                // Invalidation : le CORPS clôture au-delà de la zone
+                bool bodyBeyond = isBullishZone ? close < zBot : close > zTop
+                bool wickBeyond = isBullishZone ? low < zBot : high > zTop
+                bool invalid = mitigMode == "Corps traverse" ? bodyBeyond : wickBeyond
+
+                // tant que la zone est valide, son bord droit suit le prix
+                if zoneExtend > 0 and not invalid
+                    box.set_right(b, bar_index + zoneExtend)
+
+                if canCheck
+                    if invalid
+                        // array.remove renvoie l'élément retiré : on capture la
+                        // valeur pour que la branche se termine sur du void.
+                        bool removedFlag = array.remove(flags, i)
+                        box removedBox = array.remove(arr, i)
+                        box.delete(removedBox)
+                    else if fadeOldZones and array.get(flags, i) and bar_index - bornBar > zoneExtend * 6
+                        box.set_bgcolor(b, color.new(color.gray, 92))
+                        box.set_border_color(b, color.new(color.gray, 60))
+                    else if touched and not array.get(flags, i)
+                        array.set(flags, i, true)
+                        if markTouched
+                            box.set_bgcolor(b, touchedBg)
+                            box.set_border_color(b, touchedBorder)
+
+// Le prix est-il dans une zone ? Renvoie aussi si la zone est encore fraîche.
+f_inZone(box[] arr, bool[] flags) =>
+    bool anyZone = false
+    bool anyFresh = false
+    if array.size(arr) > 0
+        for i = 0 to array.size(arr) - 1
+            box b = array.get(arr, i)
+            if low <= box.get_top(b) and high >= box.get_bottom(b)
+                anyZone := true
+                if not array.get(flags, i)
+                    anyFresh := true
+    [anyZone, anyFresh]
+
+f_fib(int dir, float lo, float hi, float x) =>
+    float rg = hi - lo
+    dir == 1 ? hi - x * rg : lo + x * rg
+
+f_clearLines(line[] arr) =>
+    if array.size(arr) > 0
+        for i = 0 to array.size(arr) - 1
+            line.delete(array.get(arr, i))
+        array.clear(arr)
+
+f_clearLabels(label[] arr) =>
+    if array.size(arr) > 0
+        for i = 0 to array.size(arr) - 1
+            label.delete(array.get(arr, i))
+        array.clear(arr)
+
+f_fibLevel(int anchorBar, float price, float lvl, color col, string sty, bool bold) =>
+    if not na(price) and not na(anchorBar)
+        line ln = line.new(anchorBar, price, bar_index + fibExtendBars, price, xloc=xloc.bar_index, color=col, style=sty, width=bold ? 2 : 1)
+        array.push(fibLines, ln)
+        label lb = label.new(bar_index + fibExtendBars, price, str.tostring(lvl, "#.###") + "   " + str.tostring(price, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(color.black, 100), textcolor=col, size=size.tiny)
+        array.push(fibLabels, lb)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MOTEUR DE STRUCTURE UNIFIÉ
+//   Une seule source de vérité pour OB, CHoCH et BOS.
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ph = ta.pivothigh(high, swingLen, swingLen)
+pl = ta.pivotlow(low, swingLen, swingLen)
+
+var float sH = na
+var int   sHBar = na
+var float sL = na
+var int   sLBar = na
+var bool  sHBroken = false
+var bool  sLBroken = false
+var int   trendDir = 0
+var string lastEvent = "—"
+
+var float prevPH = na
+var int   prevPHBar = na
+var float prevPL = na
+var int   prevPLBar = na
+
+if not na(ph)
+    if showEQ and not na(prevPH) and math.abs(ph - prevPH) <= atr * eqTolAtr
+        line eqh = line.new(prevPHBar, prevPH, bar_index - swingLen, ph, xloc=xloc.bar_index, color=cEQ, style=line.style_dotted, width=1)
+        label eqhl = label.new(bar_index - swingLen, ph, "EQH", xloc=xloc.bar_index, style=label.style_label_down, color=color.new(color.black, 100), textcolor=cEQ, size=size.tiny)
+        array.push(structLines, eqh)
+        array.push(structLabels, eqhl)
+    prevPH := ph
+    prevPHBar := bar_index - swingLen
+    sH := ph
+    sHBar := bar_index - swingLen
+    sHBroken := false
+
+if not na(pl)
+    if showEQ and not na(prevPL) and math.abs(pl - prevPL) <= atr * eqTolAtr
+        line eql = line.new(prevPLBar, prevPL, bar_index - swingLen, pl, xloc=xloc.bar_index, color=cEQ, style=line.style_dotted, width=1)
+        label eqll = label.new(bar_index - swingLen, pl, "EQL", xloc=xloc.bar_index, style=label.style_label_up, color=color.new(color.black, 100), textcolor=cEQ, size=size.tiny)
+        array.push(structLines, eql)
+        array.push(structLabels, eqll)
+    prevPL := pl
+    prevPLBar := bar_index - swingLen
+    sL := pl
+    sLBar := bar_index - swingLen
+    sLBroken := false
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PRISE DE LIQUIDITÉ
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+float rngBar = high - low
+float lowerWick = math.min(open, close) - low
+float upperWick = high - math.max(open, close)
+
+bool sweepLowRaw = not na(sL) and low < sL and close > sL and rngBar > 0 and lowerWick / rngBar >= sweepWickRatio
+bool sweepHighRaw = not na(sH) and high > sH and close < sH and rngBar > 0 and upperWick / rngBar >= sweepWickRatio
+
+var float lastSweepLow = na
+var int   lastSweepLowBar = na
+var float lastSweepHigh = na
+var int   lastSweepHighBar = na
+
+if sweepLowRaw
+    lastSweepLow := low
+    lastSweepLowBar := bar_index
+    if showSweep
+        if showSweepLbl
+            array.push(structLabels, label.new(bar_index, low, "LQ", xloc=xloc.bar_index, style=label.style_label_up, color=color.new(color.black, 100), textcolor=cSweep, size=size.tiny))
+
+if sweepHighRaw
+    lastSweepHigh := high
+    lastSweepHighBar := bar_index
+    if showSweep
+        if showSweepLbl
+            array.push(structLabels, label.new(bar_index, high, "LQ", xloc=xloc.bar_index, style=label.style_label_down, color=color.new(color.black, 100), textcolor=cSweep, size=size.tiny))
+
+bool sweepLowActive = not na(lastSweepLowBar) and (bar_index - lastSweepLowBar) <= sweepValid
+bool sweepHighActive = not na(lastSweepHighBar) and (bar_index - lastSweepHighBar) <= sweepValid
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RECHERCHE DE L'ORDER BLOCK
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+f_lastOpposite(int lb, bool wantBearish) =>
+    int found = na
+    float top = na
+    float bot = na
+    for i = 1 to lb
+        bool isMatch = wantBearish ? close[i] < open[i] : close[i] > open[i]
+        if na(found) and isMatch
+            found := i
+            if obRange == "Corps seul"
+                top := math.max(open[i], close[i])
+                bot := math.min(open[i], close[i])
+            else
+                top := high[i]
+                bot := low[i]
+    [found, top, bot]
+
+// Un FVG existe-t-il dans les N dernières bougies ? (preuve de déplacement)
+f_recentFVG(int lb, bool bullish) =>
+    bool found = false
+    for i = 0 to math.min(lb, 20)
+        if bullish
+            if low[i] > high[i + 2]
+                found := true
+        else
+            if high[i] < low[i + 2]
+                found := true
+    found
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CASSURES DE STRUCTURE — CHoCH / BOS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+bool structDispOK = not structNeedDisp or displacementOK
+
+bool breakUp = not na(sH) and not sHBroken and close > sH and structDispOK
+bool breakDown = not na(sL) and not sLBroken and close < sL and structDispOK
+
+bool bullCHoCH = false
+bool bearCHoCH = false
+bool bullBOSsig = false
+bool bearBOSsig = false
+
+var int   legDir = 0
+var float legLo = na
+var float legHi = na
+var int   legLoBar = na
+var int   legHiBar = na
+var bool  legLocked = false
+var bool  legChanged = false
+legChanged := false
+
+if breakUp
+    bool isCHoCH = trendDir == -1
+    bullCHoCH := isCHoCH
+    bullBOSsig := not isCHoCH
+    lastEvent := isCHoCH ? "CHoCH haussier" : "BOS haussier"
+
+    float originPrice = sL
+    int originBar = sLBar
+    if fibAnchor == "Sweep -> Cassure" and sweepLowActive and not na(lastSweepLow)
+        if na(originPrice) or lastSweepLow < originPrice
+            originPrice := lastSweepLow
+            originBar := lastSweepLowBar
+
+    if not na(originPrice) and not na(originBar)
+        float hh = high
+        int span = int(math.min(bar_index - originBar, 499))
+        if span > 0
+            for i = 0 to span
+                hh := math.max(hh, high[i])
+        legDir := 1
+        legLo := originPrice
+        legLoBar := originBar
+        legHi := hh
+        legHiBar := bar_index
+        legLocked := false
+        legChanged := true
+
+    if showStruct
+        // Tracé A -> B : du pivot cassé (A) jusqu'à la bougie qui le casse (B).
+        // Ligne pleine, label collé au point B, pas au milieu du segment.
+        line bl = line.new(sHBar, sH, bar_index, sH, xloc=xloc.bar_index, color=isCHoCH ? cCHoCH : cBOS, style=line.style_solid, width=isCHoCH ? bosWidth + 1 : bosWidth)
+        array.push(bosLines, bl)
+        if showStructLbl
+            array.push(bosLabels, label.new(bar_index, sH, isCHoCH ? "CHoCH" : "BOS", xloc=xloc.bar_index, style=label.style_label_left, color=color.new(color.black, 100), textcolor=isCHoCH ? cCHoCH : cBOS, size=size.tiny))
+        if showBosPivot
+            array.push(bosLabels, label.new(sHBar, sH, "", xloc=xloc.bar_index, style=label.style_circle, color=isCHoCH ? cCHoCH : cBOS, size=size.tiny))
+
+    trendDir := 1
+    sHBroken := true
+
+if breakDown
+    bool isCHoCHb = trendDir == 1
+    bearCHoCH := isCHoCHb
+    bearBOSsig := not isCHoCHb
+    lastEvent := isCHoCHb ? "CHoCH baissier" : "BOS baissier"
+
+    float originPriceB = sH
+    int originBarB = sHBar
+    if fibAnchor == "Sweep -> Cassure" and sweepHighActive and not na(lastSweepHigh)
+        if na(originPriceB) or lastSweepHigh > originPriceB
+            originPriceB := lastSweepHigh
+            originBarB := lastSweepHighBar
+
+    if not na(originPriceB) and not na(originBarB)
+        float ll = low
+        int spanB = int(math.min(bar_index - originBarB, 499))
+        if spanB > 0
+            for i = 0 to spanB
+                ll := math.min(ll, low[i])
+        legDir := -1
+        legHi := originPriceB
+        legHiBar := originBarB
+        legLo := ll
+        legLoBar := bar_index
+        legLocked := false
+        legChanged := true
+
+    if showStruct
+        line bl2 = line.new(sLBar, sL, bar_index, sL, xloc=xloc.bar_index, color=isCHoCHb ? cCHoCH : cBOS, style=line.style_solid, width=isCHoCHb ? bosWidth + 1 : bosWidth)
+        array.push(bosLines, bl2)
+        if showStructLbl
+            array.push(bosLabels, label.new(bar_index, sL, isCHoCHb ? "CHoCH" : "BOS", xloc=xloc.bar_index, style=label.style_label_left, color=color.new(color.black, 100), textcolor=isCHoCHb ? cCHoCH : cBOS, size=size.tiny))
+        if showBosPivot
+            array.push(bosLabels, label.new(sLBar, sL, "", xloc=xloc.bar_index, style=label.style_circle, color=isCHoCHb ? cCHoCH : cBOS, size=size.tiny))
+
+    trendDir := -1
+    sLBroken := true
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CRÉATION DES ORDER BLOCKS
+//   Alignés sur la structure unifiée. Le biais HTF ne bloque que
+//   la continuation : un CHoCH contre-tendance reste traçable.
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+f_htfAllows(int dir, bool isCHoCH) =>
+    htfMode == "Rien" or htfBias == 0 ? true : htfMode == "Tout" ? htfBias == dir : (isCHoCH ? true : htfBias == dir)
+
+bool bullOBok = showBullOB and activeTF and volumeOK and displacementOK and (not obNeedSweep or sweepLowActive) and (not obNeedFVG or f_recentFVG(obLookback, true)) and f_htfAllows(1, bullCHoCH)
+bool bearOBok = showBearOB and activeTF and volumeOK and displacementOK and (not obNeedSweep or sweepHighActive) and (not obNeedFVG or f_recentFVG(obLookback, false)) and f_htfAllows(-1, bearCHoCH)
+
+if breakUp and bullOBok
+    [idx, top, bot] = f_lastOpposite(obLookback, true)
+    if not na(idx)
+        f_addBox(bullOBs, bullOBTouched, bar_index - idx, top, bot, bullOBBg, bullOBBorder, bullCHoCH ? "OB BULLISH (CHoCH)" : "OB BULLISH")
+
+if breakDown and bearOBok
+    [idx2, top2, bot2] = f_lastOpposite(obLookback, false)
+    if not na(idx2)
+        f_addBox(bearOBs, bearOBTouched, bar_index - idx2, top2, bot2, bearOBBg, bearOBBorder, bearCHoCH ? "OB BEARISH (CHoCH)" : "OB BEARISH")
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// EXTENSION ET VERROUILLAGE DE LA JAMBE
+//   Sans verrou, l'OTE glisse à chaque nouveau sommet : on ne peut
+//   pas poser d'ordre limite sur une cible mouvante.
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+if legDir == 1 and not na(legHi) and not legLocked
+    if high > legHi
+        legHi := high
+        legHiBar := bar_index
+        legChanged := true
+    else if lockLeg and not na(legLo) and legHi > legLo
+        float retr = (legHi - close) / (legHi - legLo)
+        if retr >= lockAfter
+            legLocked := true
+            legChanged := true
+
+if legDir == -1 and not na(legLo) and not legLocked
+    if low < legLo
+        legLo := low
+        legLoBar := bar_index
+        legChanged := true
+    else if lockLeg and not na(legHi) and legHi > legLo
+        float retrB = (close - legLo) / (legHi - legLo)
+        if retrB >= lockAfter
+            legLocked := true
+            legChanged := true
+
+while array.size(structLines) > maxStructLines * 3
+    line.delete(array.shift(structLines))
+
+while array.size(structLabels) > maxStructLines * 3
+    label.delete(array.shift(structLabels))
+
+// Purge séparée : les BOS/CHoCH gardent leur propre quota, sinon les
+// pools et EQH/EQL les faisaient disparaître au bout de quelques barres.
+while array.size(bosLines) > maxBosLines
+    line.delete(array.shift(bosLines))
+
+while array.size(bosLabels) > maxBosLines * 2
+    label.delete(array.shift(bosLabels))
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FIBONACCI / OTE
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+bool legValid = legDir != 0 and not na(legLo) and not na(legHi) and legHi > legLo
+
+float eqLevel = legValid ? (legHi + legLo) / 2 : na
+float oteA = legValid ? f_fib(legDir, legLo, legHi, oteLow) : na
+float oteB = legValid ? f_fib(legDir, legLo, legHi, oteHigh) : na
+float oteTop = legValid ? math.max(oteA, oteB) : na
+float oteBot = legValid ? math.min(oteA, oteB) : na
+float entryLevel = legValid ? f_fib(legDir, legLo, legHi, sweetSpot) : na
+float stopLevel = legValid ? f_fib(legDir, legLo, legHi, 1.0) : na
+float tgt1 = legValid ? f_fib(legDir, legLo, legHi, 0.0) : na
+float tgt2 = legValid ? f_fib(legDir, legLo, legHi, -0.27) : na
+float tgt3 = legValid ? f_fib(legDir, legLo, legHi, -0.62) : na
+
+// RR mesuré sur la cible 0 (le point de départ de la jambe)
+float riskDist = legValid ? math.abs(entryLevel - stopLevel) : na
+float rewardDist = legValid ? math.abs(tgt1 - entryLevel) : na
+float rrRatio = legValid and riskDist > 0 ? rewardDist / riskDist : na
+
+bool inDiscount = legValid and close < eqLevel
+bool inPremium = legValid and close > eqLevel
+bool inOTE = legValid and low <= oteTop and high >= oteBot
+
+if showFib and legValid and (legChanged or barstate.islast)
+    f_clearLines(fibLines)
+    f_clearLabels(fibLabels)
+    int aBar = legDir == 1 ? legLoBar : legHiBar
+
+    f_fibLevel(aBar, tgt1, 0.0, cFibKey, line.style_solid, false)
+    f_fibLevel(aBar, eqLevel, 0.5, cFibKey, line.style_dashed, true)
+    f_fibLevel(aBar, oteA, oteLow, cOTEBorder, line.style_dotted, false)
+    f_fibLevel(aBar, entryLevel, sweetSpot, cOTEBorder, line.style_solid, true)
+    f_fibLevel(aBar, oteB, oteHigh, cOTEBorder, line.style_dotted, false)
+    f_fibLevel(aBar, stopLevel, 1.0, color.new(color.red, 20), line.style_solid, false)
+
+    if showTargets
+        f_fibLevel(aBar, tgt2, -0.27, cTarget, line.style_dotted, false)
+        f_fibLevel(aBar, tgt3, -0.62, cTarget, line.style_dotted, false)
+
+    if showOTE
+        if not na(oteBox)
+            box.delete(oteBox)
+        oteBox := box.new(aBar, oteTop, bar_index + fibExtendBars, oteBot, xloc=xloc.bar_index, bgcolor=cOTEBg, border_color=cOTEBorder, border_width=1, text=legLocked ? "OTE (figée)" : "OTE", text_color=cOTEBorder, text_size=size.tiny)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FAIR VALUE GAPS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+bullFVGcond = showBullFVG and activeTF and volumeOK and fvgDisplacementOK and low > high[2]
+bearFVGcond = showBearFVG and activeTF and volumeOK and fvgDisplacementOK and high < low[2]
+
+bullFVGSize = low - high[2]
+bearFVGSize = low[2] - high
+
+validBullFVG = bullFVGcond and bullFVGSize >= atr * minFvgAtr
+validBearFVG = bearFVGcond and bearFVGSize >= atr * minFvgAtr
+
+if validBullFVG
+    f_addBox(bullFVGs, bullFVGTouched, bar_index - 2, low, high[2], bullFVGBg, bullFVGBorder, "FVG BULLISH")
+
+if validBearFVG
+    f_addBox(bearFVGs, bearFVGTouched, bar_index - 2, low[2], high, bearFVGBg, bearFVGBorder, "FVG BEARISH")
+
+// ════════════════════════════════════════════════════════════════════
+//  ICT 2022 MODEL — MACHINE À ÉTATS SÉQUENTIELLE
+// ════════════════════════════════════════════════════════════════════
+
+// ─── ÉTAPE ① : POOLS DE LIQUIDITÉ ───
+// Un pool = un niveau touché plusieurs fois. Plus il a été respecté,
+// plus il y a de stops empilés derrière, donc plus il vaut la peine
+// d'être raidé. Un niveau frais ne vaut rien.
+f_countTouches(float lvl, bool isHigh) =>
+    int n = 0
+    float tol = atr * poolTolAtr
+    int depth = int(math.min(poolLookback, 400))
+    for i = 1 to depth
+        if isHigh
+            if math.abs(high[i] - lvl) <= tol
+                n += 1
+        else
+            if math.abs(low[i] - lvl) <= tol
+                n += 1
+    n
+
+var label[] poolLblH = array.new_label()   // labels BSL, recyclés en continu
+var label[] poolLblL = array.new_label()
+var float poolHigh = na       // pool buy-side  (au-dessus, stops d'acheteurs)
+var int   poolHighTouch = 0
+var float poolLow = na        // pool sell-side (en-dessous, stops de vendeurs)
+var int   poolLowTouch = 0
+
+if not na(ph)
+    int tH = f_countTouches(ph, true)
+    if tH >= poolMinTouch
+        poolHigh := ph
+        poolHighTouch := tH
+        if showPools
+            array.push(structLines, line.new(bar_index - swingLen, ph, bar_index + 10, ph, xloc=xloc.bar_index, color=color.new(color.orange, 45), style=line.style_dotted, width=1))
+            // on ne garde que les N labels les plus récents, les lignes suffisent ensuite
+            if maxPoolLbl > 0
+                array.push(poolLblH, label.new(bar_index + 10, ph, "BSL x" + str.tostring(tH), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(color.black, 100), textcolor=color.new(color.orange, 15), size=size.tiny))
+                while array.size(poolLblH) > maxPoolLbl
+                    label.delete(array.shift(poolLblH))
+
+if not na(pl)
+    int tL = f_countTouches(pl, false)
+    if tL >= poolMinTouch
+        poolLow := pl
+        poolLowTouch := tL
+        if showPools
+            array.push(structLines, line.new(bar_index - swingLen, pl, bar_index + 10, pl, xloc=xloc.bar_index, color=color.new(color.orange, 45), style=line.style_dotted, width=1))
+            if maxPoolLbl > 0
+                array.push(poolLblL, label.new(bar_index + 10, pl, "SSL x" + str.tostring(tL), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(color.black, 100), textcolor=color.new(color.orange, 15), size=size.tiny))
+                while array.size(poolLblL) > maxPoolLbl
+                    label.delete(array.shift(poolLblL))
+
+// ─── ÉTAPE ② : SWEEP D'UN POOL QUALIFIÉ ───
+// On ne réutilise pas le sweep générique : ici il faut que la mèche
+// ait pris un POOL (niveau multi-touches), pas un swing quelconque.
+float poolTol = atr * poolTolAtr
+
+bool sweptPoolLow = not na(poolLow) and low < poolLow and close > poolLow and rngBar > 0 and lowerWick / rngBar >= sweepWickRatio
+bool sweptPoolHigh = not na(poolHigh) and high > poolHigh and close < poolHigh and rngBar > 0 and upperWick / rngBar >= sweepWickRatio
+
+// État de la séquence : 0 = rien, 1 = sweep armé, 2 = MSS confirmé
+var int  seqState = 0
+var int  seqDir = 0          // 1 = long (sweep bas), -1 = short (sweep haut)
+var float seqSweepPrice = na  // extrême de la mèche du sweep = base du stop
+var int  seqSweepBar = na
+var float seqPoolPrice = na   // le pool raidé
+var float seqTargetPool = na  // le pool OPPOSÉ = la cible
+
+if use22 and activeTF
+    if sweptPoolLow and seqState == 0
+        seqState := 1
+        seqDir := 1
+        seqSweepPrice := low
+        seqSweepBar := bar_index
+        seqPoolPrice := poolLow
+        seqTargetPool := poolHigh
+    else if sweptPoolHigh and seqState == 0
+        seqState := 1
+        seqDir := -1
+        seqSweepPrice := high
+        seqSweepBar := bar_index
+        seqPoolPrice := poolHigh
+        seqTargetPool := poolLow
+
+// Le sweep expire s'il n'est pas suivi d'un MSS assez vite
+if seqState == 1 and not na(seqSweepBar) and (bar_index - seqSweepBar) > maxSweepToMSS
+    seqState := 0
+    seqDir := 0
+
+// Invalidation : le prix repasse au-delà de l'extrême du sweep
+if seqState > 0 and not na(seqSweepPrice)
+    if (seqDir == 1 and close < seqSweepPrice) or (seqDir == -1 and close > seqSweepPrice)
+        seqState := 0
+        seqDir := 0
+
+// ─── ÉTAPES ③+④ : DÉPLACEMENT + MSS ───
+// Le MSS doit aller DANS le sens du sweep : on raide les bas, on casse
+// vers le haut. Le déplacement est déjà exigé par structDispOK.
+var int seqMSSBar = na
+
+if seqState == 1
+    if seqDir == 1 and breakUp
+        seqState := 2
+        seqMSSBar := bar_index
+    else if seqDir == -1 and breakDown
+        seqState := 2
+        seqMSSBar := bar_index
+
+// Le MSS expire s'il ne produit pas de FVG exploitable
+if seqState == 2 and not na(seqMSSBar) and (bar_index - seqMSSBar) > maxMSSToFVG
+    seqState := 0
+    seqDir := 0
+
+// ─── ÉTAPE ⑤ : LE FVG DU DÉPLACEMENT DEVIENT LA ZONE D'ENTRÉE ───
+var box   setupBox = na
+var line  setupCE = na
+var line  setupStopLn = na
+var line  setupT1Ln = na
+var line  setupT2Ln = na
+var label setupLbl = na
+
+var bool  setupActive = false
+var int   setupDir = 0
+var float setupTop = na
+var float setupBot = na
+var float setupCEPrice = na
+var float setupEntry = na
+var float setupStop = na
+var float setupT1 = na
+var float setupT2 = na
+var int   setupBar = na
+var bool  setupTriggered = false
+
+f_clearSetup() =>
+    if not na(setupBox)
+        box.delete(setupBox)
+    if not na(setupCE)
+        line.delete(setupCE)
+    if not na(setupStopLn)
+        line.delete(setupStopLn)
+    if not na(setupT1Ln)
+        line.delete(setupT1Ln)
+    if not na(setupT2Ln)
+        line.delete(setupT2Ln)
+    if not na(setupLbl)
+        label.delete(setupLbl)
+
+// FVG créé sur cette bougie, dans le sens de la séquence
+bool freshBullFVG = low > high[2]
+bool freshBearFVG = high < low[2]
+
+if seqState == 2 and not setupActive
+    bool gotFVG = seqDir == 1 ? freshBullFVG : freshBearFVG
+
+    if gotFVG
+        float gTop = seqDir == 1 ? low : low[2]
+        float gBot = seqDir == 1 ? high[2] : high
+        float gapSize = math.abs(gTop - gBot)
+
+        if gapSize >= atr * minFvgAtr
+            f_clearSetup()
+
+            setupActive := true
+            setupDir := seqDir
+            setupTop := math.max(gTop, gBot)
+            setupBot := math.min(gTop, gBot)
+            setupCEPrice := (setupTop + setupBot) / 2
+            setupBar := bar_index
+            setupTriggered := false
+
+            // Niveau d'entrée selon le mode choisi
+            if entryMode == "CE (50% du FVG)"
+                setupEntry := setupCEPrice
+            else if entryMode == "Bord proche (conservateur)"
+                setupEntry := seqDir == 1 ? setupTop : setupBot
+            else
+                setupEntry := seqDir == 1 ? setupBot : setupTop
+
+            // ⑥ Stop au-delà de la mèche du sweep, cible = pool opposé
+            setupStop := seqDir == 1 ? seqSweepPrice - atr * stopBuffer : seqSweepPrice + atr * stopBuffer
+            setupT1 := seqDir == 1 ? legHi : legLo          // liquidité interne
+            setupT2 := seqTargetPool                         // liquidité externe
+
+            if show22Zones
+                setupBox := box.new(bar_index - 2, setupTop, bar_index + fibExtendBars, setupBot, xloc=xloc.bar_index, bgcolor=color.new(seqDir == 1 ? color.green : color.red, 80), border_color=color.new(seqDir == 1 ? color.green : color.red, 20), border_width=2, text=seqDir == 1 ? "FVG entrée LONG" : "FVG entrée SHORT", text_color=color.new(seqDir == 1 ? color.green : color.red, 10), text_size=size.tiny)
+                setupCE := line.new(bar_index - 2, setupCEPrice, bar_index + fibExtendBars, setupCEPrice, xloc=xloc.bar_index, color=color.new(color.white, 10), style=line.style_dashed, width=1)
+
+            if show22Levels
+                setupStopLn := line.new(bar_index, setupStop, bar_index + fibExtendBars, setupStop, xloc=xloc.bar_index, color=color.new(color.red, 10), style=line.style_solid, width=1)
+                if not na(setupT1)
+                    setupT1Ln := line.new(bar_index, setupT1, bar_index + fibExtendBars, setupT1, xloc=xloc.bar_index, color=color.new(color.lime, 30), style=line.style_dotted, width=1)
+                if not na(setupT2)
+                    setupT2Ln := line.new(bar_index, setupT2, bar_index + fibExtendBars, setupT2, xloc=xloc.bar_index, color=color.new(color.lime, 10), style=line.style_solid, width=1)
+
+            seqState := 0
+            seqDir := 0
+
+// ─── SUIVI DU SETUP : déclenchement, invalidation, expiration ───
+float rr22 = na
+if setupActive and not na(setupEntry) and not na(setupStop) and not na(setupT2)
+    float risk22 = math.abs(setupEntry - setupStop)
+    rr22 := risk22 > 0 ? math.abs(setupT2 - setupEntry) / risk22 : na
+
+bool entryHit = false
+bool setupInvalid = false
+
+if setupActive and bar_index > setupBar
+    // Entrée touchée : le prix revient dans le gap au niveau choisi
+    if not setupTriggered
+        entryHit := setupDir == 1 ? low <= setupEntry and high >= setupBot : high >= setupEntry and low <= setupTop
+        if entryHit
+            setupTriggered := true
+
+    // Invalidation : le corps clôture au-delà du stop
+    if (setupDir == 1 and close < setupStop) or (setupDir == -1 and close > setupStop)
+        setupInvalid := true
+
+    // Cible atteinte
+    bool targetHit = not na(setupT2) and (setupDir == 1 ? high >= setupT2 : low <= setupT2)
+
+    // Expiration si jamais déclenché
+    bool expired = not setupTriggered and (bar_index - setupBar) > setupExpiry
+
+    if setupInvalid or targetHit or expired
+        f_clearSetup()
+        setupActive := false
+        setupDir := 0
+        setupTriggered := false
+
+bool long22 = setupActive and setupDir == 1 and entryHit and inKZ and (minRR <= 0 or (not na(rr22) and rr22 >= minRR))
+bool short22 = setupActive and setupDir == -1 and entryHit and inKZ and (minRR <= 0 or (not na(rr22) and rr22 >= minRR))
+
+if showSignals and (long22 or short22)
+    string txt22 = (long22 ? "LONG 2022" : "SHORT 2022") + (na(rr22) ? "" : "  RR " + str.tostring(rr22, "#.#"))
+    label.new(bar_index, long22 ? low : high, txt22, xloc=xloc.bar_index, style=long22 ? label.style_label_up : label.style_label_down, color=color.new(long22 ? color.green : color.red, 10), textcolor=color.white, size=size.normal)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SIGNAL A+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[inBullOB, freshBullOB] = f_inZone(bullOBs, bullOBTouched)
+[inBearOB, freshBearOB] = f_inZone(bearOBs, bearOBTouched)
+
+bool rrOK = minRR <= 0 or (not na(rrRatio) and rrRatio >= minRR)
+
+bool longSetup = activeTF and legDir == 1 and rrOK and (not reqOB or inBullOB) and (not reqOTE or inOTE) and (not reqPD or inDiscount) and (not reqSweep or sweepLowActive)
+bool shortSetup = activeTF and legDir == -1 and rrOK and (not reqOB or inBearOB) and (not reqOTE or inOTE) and (not reqPD or inPremium) and (not reqSweep or sweepHighActive)
+
+var int lastSignalBar = na
+bool coolOK = na(lastSignalBar) or (bar_index - lastSignalBar) >= signalCooldown
+
+bool longSignal = longSetup and not longSetup[1] and coolOK
+bool shortSignal = shortSetup and not shortSetup[1] and coolOK
+
+if showSignals and (longSignal or shortSignal)
+    lastSignalBar := bar_index
+    string rrTxt = na(rrRatio) ? "" : "  RR " + str.tostring(rrRatio, "#.#")
+    label.new(bar_index, longSignal ? low : high, (longSignal ? "LONG A+" : "SHORT A+") + rrTxt, xloc=xloc.bar_index, style=longSignal ? label.style_label_up : label.style_label_down, color=color.new(longSignal ? color.green : color.red, 20), textcolor=color.white, size=size.small)
+
+// ════════════════════════════════════════════════════════════════════
+//  BREAKER BLOCKS + MODÈLE UNICORN
+//
+//  Breaker = un OB qui a ÉCHOUÉ. Le prix a clôturé au-delà, donc les
+//  ordres qui s'y trouvaient ont été absorbés. La zone inverse alors sa
+//  polarité : un OB haussier cassé devient une résistance.
+//
+//  Unicorn = un FVG qui CHEVAUCHE un breaker de même sens. Proximité
+//  ne suffit pas : il faut une vraie intersection de prix.
+// ════════════════════════════════════════════════════════════════════
+var float lastBrkTop = na     // anti-doublon : évite de reconvertir
+var float lastBrkBot = na     // le même OB à chaque barre
+var box[]   breakers = array.new_box()
+var int[]   breakerDir = array.new_int()     // 1 = haussier, -1 = baissier
+var float[] breakerTop = array.new_float()
+var float[] breakerBot = array.new_float()
+var int[]   breakerBar = array.new_int()
+
+f_pushBreaker(int dir, float top, float bot, int bar) =>
+    if showBreakers and not na(top) and not na(bot) and top > bot
+        color brkCol = dir == 1 ? #ffb300 : #8d6e63
+        box b = box.new(bar, top, bar_index + math.max(zoneExtend, 10), bot, xloc=xloc.bar_index, bgcolor=color.new(brkCol, 84), border_color=color.new(brkCol, 10), border_width=2, text=dir == 1 ? "BREAKER BULLISH" : "BREAKER BEARISH", text_color=color.new(brkCol, 0), text_size=size.tiny, text_halign=text.align_left, text_valign=text.align_center)
+        array.push(breakers, b)
+        array.push(breakerDir, dir)
+        array.push(breakerTop, top)
+        array.push(breakerBot, bot)
+        array.push(breakerBar, bar)
+
+        if array.size(breakers) > maxBreakers
+            box.delete(array.shift(breakers))
+            int d0 = array.shift(breakerDir)
+            float t0 = array.shift(breakerTop)
+            float b0 = array.shift(breakerBot)
+            int r0 = array.shift(breakerBar)
+
+// Un OB invalidé se retourne en breaker de polarité opposée.
+// On relit les zones avant que f_manageZones ne les supprime.
+if useBreakers
+    if array.size(bullOBs) > 0
+        for i = array.size(bullOBs) - 1 to 0
+            if i < array.size(bullOBs)
+                box ob = array.get(bullOBs, i)
+                float obTop = box.get_top(ob)
+                float obBot = box.get_bottom(ob)
+                // corps clôturant sous un OB haussier => il devient baissier
+                bool isDup = not na(lastBrkTop) and math.abs(obTop - lastBrkTop) < syminfo.mintick and math.abs(obBot - lastBrkBot) < syminfo.mintick
+                if close < obBot and bar_index > box.get_left(ob) + 1 and not isDup
+                    lastBrkTop := obTop
+                    lastBrkBot := obBot
+                    f_pushBreaker(-1, obTop, obBot, bar_index)
+
+    if array.size(bearOBs) > 0
+        for i = array.size(bearOBs) - 1 to 0
+            if i < array.size(bearOBs)
+                box ob2 = array.get(bearOBs, i)
+                float obTop2 = box.get_top(ob2)
+                float obBot2 = box.get_bottom(ob2)
+                bool isDup2 = not na(lastBrkTop) and math.abs(obTop2 - lastBrkTop) < syminfo.mintick and math.abs(obBot2 - lastBrkBot) < syminfo.mintick
+                if close > obTop2 and bar_index > box.get_left(ob2) + 1 and not isDup2
+                    lastBrkTop := obTop2
+                    lastBrkBot := obBot2
+                    f_pushBreaker(1, obTop2, obBot2, bar_index)
+
+// ─── UNICORN : intersection breaker × FVG, même sens, même déplacement ───
+var box   unicornBox = na
+var int   unicornDir = 0
+var float unicornTop = na
+var float unicornBot = na
+var int   unicornBar = na
+var bool  unicornLive = false
+
+if useUnicorn and array.size(breakers) > 0
+    bool haveFVG = freshBullFVG or freshBearFVG
+    if haveFVG
+        int fdir = freshBullFVG ? 1 : -1
+        float fTop = freshBullFVG ? low : low[2]
+        float fBot = freshBullFVG ? high[2] : high
+        float fT = math.max(fTop, fBot)
+        float fB = math.min(fTop, fBot)
+
+        for i = array.size(breakers) - 1 to 0
+            if i < array.size(breakers) and not unicornLive
+                int bd = array.get(breakerDir, i)
+                float bT = array.get(breakerTop, i)
+                float bB = array.get(breakerBot, i)
+                int bBar = array.get(breakerBar, i)
+
+                // même sens + formés dans le même déplacement
+                if bd == fdir and (bar_index - bBar) <= unicornMaxGap
+                    float ovTop = math.min(bT, fT)
+                    float ovBot = math.max(bB, fB)
+
+                    if ovTop > ovBot
+                        float ovSize = ovTop - ovBot
+                        float refSize = math.max(bT - bB, fT - fB)
+                        // chevauchement réel, pas un effleurement
+                        if refSize > 0 and (ovSize / refSize) * 100 >= unicornMinPct
+                            if not na(unicornBox)
+                                box.delete(unicornBox)
+                            unicornDir := bd
+                            unicornTop := ovTop
+                            unicornBot := ovBot
+                            unicornBar := bar_index
+                            unicornLive := true
+                            unicornBox := box.new(bar_index - 2, ovTop, bar_index + math.max(zoneExtend, 10), ovBot, xloc=xloc.bar_index, bgcolor=color.new(#ffff00, 72), border_color=color.new(#ffff00, 0), border_width=2, text=bd == 1 ? "UNICORN BULLISH" : "UNICORN BEARISH", text_color=color.new(#ffff00, 0), text_size=size.tiny, text_halign=text.align_left, text_valign=text.align_center)
+
+// Retour du prix dans la zone Unicorn = déclencheur
+bool unicornEntry = false
+if unicornLive and not na(unicornTop) and bar_index > unicornBar
+    bool backIn = low <= unicornTop and high >= unicornBot
+    if backIn
+        unicornEntry := true
+        unicornLive := false
+    // invalidation : corps au-delà de la zone
+    else if (unicornDir == 1 and close < unicornBot) or (unicornDir == -1 and close > unicornTop)
+        if not na(unicornBox)
+            box.delete(unicornBox)
+        unicornLive := false
+
+bool longUni = unicornEntry and unicornDir == 1 and inKZ
+bool shortUni = unicornEntry and unicornDir == -1 and inKZ
+
+if showSignals and (longUni or shortUni)
+    label.new(bar_index, longUni ? low : high, longUni ? "UNICORN LONG" : "UNICORN SHORT", xloc=xloc.bar_index, style=longUni ? label.style_label_up : label.style_label_down, color=color.new(color.yellow, 10), textcolor=color.black, size=size.small)
+
+// ════════════════════════════════════════════════════════════════════
+//  MODÈLE OB — TRADE SUR RETOUR DANS L'ORDER BLOCK
+//
+//  Logique différente du 2022 : là-bas on attend une SÉQUENCE complète,
+//  ici on exploite une zone DÉJÀ validée à sa création (elle exige déjà
+//  sweep + déplacement + structure). On attend simplement que le prix
+//  revienne la tester, et on entre sur la RÉACTION.
+//
+//  C'est le modèle le plus fréquent en signaux, donc le plus exposé aux
+//  faux positifs : d'où la réaction obligatoire et le filtre HTF.
+// ════════════════════════════════════════════════════════════════════
+
+// Cherche l'OB le plus proche du prix parmi les zones encore exploitables
+f_findOB(box[] arr, bool[] flags, bool bullish) =>
+    float bTop = na
+    float bBot = na
+    int   bLeft = na
+    float bestDist = 1e20
+
+    if array.size(arr) > 0
+        for i = 0 to array.size(arr) - 1
+            bool fresh = not array.get(flags, i)
+            if not obFreshOnly or fresh
+                box b = array.get(arr, i)
+                float zt = box.get_top(b)
+                float zb = box.get_bottom(b)
+                // le prix touche-t-il la zone sur cette bougie ?
+                if low <= zt and high >= zb
+                    float d = math.abs(close - (zt + zb) / 2)
+                    if d < bestDist
+                        bestDist := d
+                        bTop := zt
+                        bBot := zb
+                        bLeft := box.get_left(b)
+    [bTop, bBot, bLeft]
+
+[obBullTop, obBullBot, obBullLeft] = f_findOB(bullOBs, bullOBTouched, true)
+[obBearTop, obBearBot, obBearLeft] = f_findOB(bearOBs, bearOBTouched, false)
+
+// Réaction : le prix rejette la zone au lieu de la traverser.
+// Pour un OB haussier : mèche dedans, clôture haussière au-dessus du CE.
+bool obBullReact = not na(obBullTop) and (not obNeedReaction or (close > open and close > (obBullTop + obBullBot) / 2))
+bool obBearReact = not na(obBearTop) and (not obNeedReaction or (close < open and close < (obBearTop + obBearBot) / 2))
+
+// Le retour doit se produire APRÈS la création de la zone
+bool obBullValid = obBullReact and not na(obBullLeft) and bar_index > obBullLeft + 2
+bool obBearValid = obBearReact and not na(obBearLeft) and bar_index > obBearLeft + 2
+
+// ─── Niveaux du trade OB ───
+float obLongEntry = na
+float obLongStop = na
+float obLongTgt = na
+float obShortEntry = na
+float obShortStop = na
+float obShortTgt = na
+
+if obBullValid
+    obLongEntry := obEntryMode == "CE (50% de l'OB)" ? (obBullTop + obBullBot) / 2 : obEntryMode == "Bord proche (conservateur)" ? obBullTop : obBullBot
+    obLongStop := obBullBot - atr * obStopBuffer
+    float rDist = obLongEntry - obLongStop
+    obLongTgt := obTargetMode == "Multiple de R" ? obLongEntry + rDist * obRMult : obTargetMode == "Liquidité interne" ? (na(legHi) ? obLongEntry + rDist * obRMult : legHi) : (na(poolHigh) or poolHigh <= obLongEntry ? obLongEntry + rDist * obRMult : poolHigh)
+
+if obBearValid
+    obShortEntry := obEntryMode == "CE (50% de l'OB)" ? (obBearTop + obBearBot) / 2 : obEntryMode == "Bord proche (conservateur)" ? obBearBot : obBearTop
+    obShortStop := obBearTop + atr * obStopBuffer
+    float rDistS = obShortStop - obShortEntry
+    obShortTgt := obTargetMode == "Multiple de R" ? obShortEntry - rDistS * obRMult : obTargetMode == "Liquidité interne" ? (na(legLo) ? obShortEntry - rDistS * obRMult : legLo) : (na(poolLow) or poolLow >= obShortEntry ? obShortEntry - rDistS * obRMult : poolLow)
+
+float obLongRR = obBullValid and not na(obLongStop) and (obLongEntry - obLongStop) > 0 ? (obLongTgt - obLongEntry) / (obLongEntry - obLongStop) : na
+float obShortRR = obBearValid and not na(obShortStop) and (obShortStop - obShortEntry) > 0 ? (obShortEntry - obShortTgt) / (obShortStop - obShortEntry) : na
+
+// Anti-spam : une seule entrée OB par zone
+var int lastOBLongBar = na
+var int lastOBShortBar = na
+bool obCoolLong = na(lastOBLongBar) or (bar_index - lastOBLongBar) >= signalCooldown
+bool obCoolShort = na(lastOBShortBar) or (bar_index - lastOBShortBar) >= signalCooldown
+
+bool longOB = useOBTrade and activeTF and obBullValid and inKZ and obCoolLong and (not obAlignHTF or f_htfAllows(1, false)) and (obMinRR <= 0 or (not na(obLongRR) and obLongRR >= obMinRR))
+bool shortOB = useOBTrade and activeTF and obBearValid and inKZ and obCoolShort and (not obAlignHTF or f_htfAllows(-1, false)) and (obMinRR <= 0 or (not na(obShortRR) and obShortRR >= obMinRR))
+
+if longOB
+    lastOBLongBar := bar_index
+if shortOB
+    lastOBShortBar := bar_index
+
+if showSignals and (longOB or shortOB)
+    string txtOB = (longOB ? "OB LONG" : "OB SHORT") + "  " + str.tostring(longOB ? obLongRR : obShortRR, "#.#") + "R"
+    label.new(bar_index, longOB ? low : high, txtOB, xloc=xloc.bar_index, style=longOB ? label.style_label_up : label.style_label_down, color=color.new(longOB ? color.teal : color.maroon, 10), textcolor=color.white, size=size.small)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// GESTION DES ZONES  (après l'évaluation du signal)
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+f_manageZones(bullOBs, bullOBTouched, true)
+f_manageZones(bearOBs, bearOBTouched, false)
+f_manageZones(bullFVGs, bullFVGTouched, true)
+f_manageZones(bearFVGs, bearFVGTouched, false)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// TABLEAU
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+var table t = table.new(position.top_right, 2, 17, border_width=1)
+
+f_row(int r, string k, string v, color vc) =>
+    table.cell(t, 0, r, k, text_color=color.new(color.white, 25), text_size=size.tiny, text_halign=text.align_left, bgcolor=color.new(color.black, 55))
+    table.cell(t, 1, r, v, text_color=vc, text_size=size.tiny, text_halign=text.align_right, bgcolor=color.new(color.black, 55))
+
+if barstate.islast
+    string hdr = activeTF ? "SMC actif" : not inSession ? "Hors session" : not volOK_floor ? "Volatilité trop faible" : "TF trop élevé"
+    table.cell(t, 0, 0, hdr, text_color=color.white, text_size=size.tiny, bgcolor=activeTF ? color.new(color.green, 25) : color.new(color.red, 20))
+    table.cell(t, 1, 0, timeframe.period + " · sw" + str.tostring(swingLen), text_color=color.white, text_size=size.tiny, bgcolor=activeTF ? color.new(color.green, 25) : color.new(color.red, 20))
+
+    f_row(1, "Biais HTF " + htfRes, htfBias == 1 ? "Haussier" : htfBias == -1 ? "Baissier" : "Neutre", htfBias == 1 ? color.lime : htfBias == -1 ? color.red : color.gray)
+    f_row(2, "Structure locale", trendDir == 1 ? "Haussière" : trendDir == -1 ? "Baissière" : "—", trendDir == 1 ? color.lime : trendDir == -1 ? color.red : color.gray)
+    f_row(3, "Dernier événement", lastEvent, str.contains(lastEvent, "CHoCH") ? cCHoCH : color.silver)
+    f_row(4, "Volatilité (ATR%)", str.tostring(atrPct, "#.###") + " %", volOK_floor ? color.lime : color.red)
+    f_row(5, "Zone", legValid ? (inDiscount ? "Discount" : inPremium ? "Premium" : "Équilibre") : "—", legValid ? (inDiscount ? color.lime : color.orange) : color.gray)
+    f_row(6, "Jambe", legValid ? (legLocked ? "Figée" : "En extension") : "—", legLocked ? color.lime : color.orange)
+    f_row(7, "Entrée " + str.tostring(sweetSpot), legValid ? str.tostring(entryLevel, format.mintick) : "—", color.aqua)
+    f_row(8, "Stop / RR", legValid ? str.tostring(stopLevel, format.mintick) + "  (" + str.tostring(rrRatio, "#.#") + ")" : "—", rrOK ? color.lime : color.red)
+    f_row(9, "TP -0.27 / -0.62", legValid ? str.tostring(tgt2, format.mintick) + " / " + str.tostring(tgt3, format.mintick) : "—", color.lime)
+
+    // ─── Suivi de la séquence ICT 2022 ───
+    string stepTxt = not use22 ? "désactivé" : setupActive ? (setupTriggered ? "⑤ ENTRÉE DÉCLENCHÉE" : "⑤ FVG armé — attente") : seqState == 2 ? "④ MSS — attente FVG" : seqState == 1 ? (seqDir == 1 ? "② Sweep SSL — attente MSS" : "② Sweep BSL — attente MSS") : "① Attente d'un sweep"
+    color stepCol = setupActive ? (setupTriggered ? color.lime : color.yellow) : seqState > 0 ? color.orange : color.gray
+    f_row(10, "Séquence 2022", stepTxt, stepCol)
+    f_row(11, "Pools BSL / SSL", (na(poolHigh) ? "—" : str.tostring(poolHigh, format.mintick) + " x" + str.tostring(poolHighTouch)) + "  /  " + (na(poolLow) ? "—" : str.tostring(poolLow, format.mintick) + " x" + str.tostring(poolLowTouch)), color.new(color.orange, 10))
+    f_row(12, "Entrée / Stop / Cible", setupActive ? str.tostring(setupEntry, format.mintick) + " / " + str.tostring(setupStop, format.mintick) + " / " + (na(setupT2) ? "—" : str.tostring(setupT2, format.mintick)) : "—", setupActive ? color.aqua : color.gray)
+    f_row(13, "Killzone", not useKZ ? "filtre off" : inKZ ? kzName : "hors fenêtre", inKZ ? color.lime : color.red)
+    string obTxt = not useOBTrade ? "désactivé" : longOB ? "LONG armé " + str.tostring(obLongRR, "#.#") + "R" : shortOB ? "SHORT armé " + str.tostring(obShortRR, "#.#") + "R" : obBullValid ? "réaction haussière" : obBearValid ? "réaction baissière" : "aucun retour en zone"
+    f_row(14, "Modèle OB", obTxt, longOB or shortOB ? color.lime : obBullValid or obBearValid ? color.orange : color.gray)
+    f_row(15, "Breakers / Unicorn", str.tostring(array.size(breakers)) + (unicornLive ? "  ·  UNICORN ARMÉ" : ""), unicornLive ? color.yellow : color.new(color.white, 40))
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PLOTS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+bgcolor(kzShade and useKZ and inKZ ? color.new(kzS ? color.yellow : kzA ? color.aqua : kzL ? color.blue : color.gray, 94) : na, title="Killzone")
+
+plot(showEMA ? emaRef : na, "EMA", color=color.new(color.white, 35))
+plot(showFib and legValid ? eqLevel : na, "Équilibre 0.5", color=color.new(color.white, 60), style=plot.style_stepline)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ALERTES
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+alertcondition(bullCHoCH, title="CHoCH haussier", message="CHoCH haussier sur {{ticker}} {{interval}}")
+alertcondition(bearCHoCH, title="CHoCH baissier", message="CHoCH baissier sur {{ticker}} {{interval}}")
+alertcondition(bullBOSsig, title="BOS haussier", message="BOS haussier sur {{ticker}} {{interval}}")
+alertcondition(bearBOSsig, title="BOS baissier", message="BOS baissier sur {{ticker}} {{interval}}")
+alertcondition(sweepLowRaw, title="Sweep des lows", message="Prise de liquidité basse sur {{ticker}} {{interval}}")
+alertcondition(sweepHighRaw, title="Sweep des highs", message="Prise de liquidité haute sur {{ticker}} {{interval}}")
+alertcondition(validBullFVG, title="Bullish FVG", message="Bullish FVG sur {{ticker}} {{interval}}")
+alertcondition(validBearFVG, title="Bearish FVG", message="Bearish FVG sur {{ticker}} {{interval}}")
+alertcondition(longSignal, title="Signal LONG A+", message="LONG A+ sur {{ticker}} {{interval}} : OB + OTE + liquidité")
+alertcondition(shortSignal, title="Signal SHORT A+", message="SHORT A+ sur {{ticker}} {{interval}} : OB + OTE + liquidité")
+
+// ─── Alertes de la séquence ICT 2022, étape par étape ───
+alertcondition(sweptPoolLow, title="2022 ② Sweep SSL", message="Sweep du pool bas sur {{ticker}} {{interval}} — surveiller le MSS haussier")
+alertcondition(sweptPoolHigh, title="2022 ② Sweep BSL", message="Sweep du pool haut sur {{ticker}} {{interval}} — surveiller le MSS baissier")
+alertcondition(long22, title="2022 ⑤ ENTRÉE LONG", message="ICT 2022 LONG sur {{ticker}} {{interval}} : pool balayé, MSS confirmé, entrée au FVG")
+alertcondition(short22, title="2022 ⑤ ENTRÉE SHORT", message="ICT 2022 SHORT sur {{ticker}} {{interval}} : pool balayé, MSS confirmé, entrée au FVG")
+alertcondition(longOB, title="OB LONG", message="OB LONG sur {{ticker}} {{interval}} : retour et réaction dans un Order Block frais")
+alertcondition(shortOB, title="OB SHORT", message="OB SHORT sur {{ticker}} {{interval}} : retour et réaction dans un Order Block frais")
+alertcondition(longUni, title="Unicorn LONG", message="UNICORN LONG sur {{ticker}} {{interval}} : FVG dans un breaker haussier")
+alertcondition(shortUni, title="Unicorn SHORT", message="UNICORN SHORT sur {{ticker}} {{interval}} : FVG dans un breaker baissier")

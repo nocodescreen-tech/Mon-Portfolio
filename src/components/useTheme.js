@@ -16,21 +16,16 @@ function readStored() {
 let cachedTheme = readStored()
 const subscribers = new Set()
 
-function commit(theme, animate = false) {
+function commit(theme) {
   if (typeof window === 'undefined') return
   cachedTheme = theme
   try {
     window.localStorage.setItem(KEY, theme)
   } catch { /* ignore */ }
-  const root = document.documentElement
-  root.setAttribute('data-theme', theme)
-
-  if (animate) {
-    // Transition fluide des couleurs au changement de thème uniquement.
-    root.classList.add('theme-anim')
-    clearTimeout(root._themeTimer)
-    root._themeTimer = setTimeout(() => root.classList.remove('theme-anim'), 600)
-  }
+  requestAnimationFrame(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+  })
+  // Inutile de poser/retirer une classe d'animation : le changement est instantané.
   subscribers.forEach((fn) => fn(theme))
 }
 
@@ -45,7 +40,7 @@ export default function useTheme() {
   }, [])
 
   const toggle = useCallback(() => {
-    commit(theme === 'dark' ? 'light' : 'dark', true)
+    commit(theme === 'dark' ? 'light' : 'dark')
   }, [theme])
 
   return { theme, toggle }

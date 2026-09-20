@@ -1,25 +1,15 @@
-/**
- * API de contact — fonction serverless (Vercel).
- *
- * Déploiement : poussez ce dépôt sur Vercel, puis configurez ces variables
- * d'environnement dans le dashboard (Settings → Environment Variables) :
- *
- *   SMTP_HOST      ex: smtp.gmail.com
- *   SMTP_PORT      ex: 587
- *   SMTP_USER      votre adresse d'envoi
- *   SMTP_PASS      mot de passe applicatif (Gmail: "App password")
- *   SMTP_FROM      expéditeur visible (ex: "Portfolio <no-reply@votresite.com>")
- *   CONTACT_TO     votre adresse de réception (ex: no.codescreen@gmail.com)
- *
- * Sans SMTP configuré, l'API répond 503 avec un message clair — le formulaire
- * bascule alors sur le repli mailto côté client.
- */
+// ============================================================
+// POST /api/contact — reception d'un message du formulaire public.
+// 1. Valide (honeypot + format + débit)
+// 2. Persiste en base Postgres (Supabase) si DATABASE_URL présent
+// 3. Envoie l'email vers la boîte admin via SMTP
+// ============================================================
 import nodemailer from 'nodemailer'
+import { query, cors, sendJSON, hasDb } from './_db.js'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
-// Limitation de débit : 10 envois / 10 min / IP (comptés APRÈS le filtre
-// honeypot — les bots n'épuisent pas le quota des visiteurs légitimes)
+// Limitation de débit : 10 envois / 10 min / IP (comptés APRÈS le honeypot).
 const WINDOW_MS = 10 * 60 * 1000
 const MAX_PER_WINDOW = 10
 const hits = new Map()
@@ -36,12 +26,9 @@ function rateLimited(ip) {
 }
 
 export default async function handler(req, res) {
-  // CORS pour permettre l'envoi depuis un autre domaine si besoin
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  cors(res, req)
   if (req.method === 'OPTIONS') return res.status(204).end()
-  if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'Méthode non autorisée.' })
+  if (req.method !== 'POST') return sendJSON(res, 405, { error: 'Méthode non autorisée.' })
 
   const ip =
     (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
@@ -52,16 +39,14 @@ export default async function handler(req, res) {
   try {
     body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {}
   } catch {
-    return res.status(400).json({ ok: false, error: 'JSON invalide.' })
+    return sendJSON(res, 400, { error: 'JSON invalide.' })
   }
 
-  // Honeypot : les bots remplissent ce champ — ignorés sans compter dans le quota
-  if (body.website) {
-    return res.status(200).json({ ok: true }) // silencieux pour ne pas éduquer le bot
-  }
+  // Honeypot : les bots remplissent ce champ — on répond OK sans rien faire.
+  if (body.website) return sendJSON(res, 200, {})
 
   if (rateLimited(ip)) {
-    return res.status(429).json({ ok: false, error: 'Trop de messages. Réessayez dans quelques minutes.' })
+    return sendJSON(res, 429, { error: 'Trop de messages. Réessayez dans quelques minutes.' })
   }
 
   const nom = String(body.nom || '').trim().slice(0, 120)
@@ -69,49 +54,66 @@ export default async function handler(req, res) {
   const sujet = String(body.sujet || '').trim().slice(0, 200) || 'Nouveau projet'
   const message = String(body.message || '').trim().slice(0, 5000)
 
-  // Validation serveur
-  if (nom.length < 2) return res.status(400).json({ ok: false, error: 'Nom invalide.' })
-  if (!EMAIL_RE.test(email)) return res.status(400).json({ ok: false, error: 'Email invalide.' })
-  if (message.length < 10) return res.status(400).json({ ok: false, error: 'Message trop court.' })
+  if (nom.length < 2) return sendJSON(res, 400, { error: 'Nom invalide.' })
+  if (!EMAIL_RE.test(email)) return sendJSON(res, 400, { error: 'Email invalide.' })
+  if (message.length < 10) return sendJSON(res, 400, { error: 'Message trop court.' })
 
+  let persistedId = null
+  if (hasDb()) {
+    try {
+      const r = await query(
+        `INSERT INTO messages (nom, email, sujet, message, ip)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        [nom, email, sujet, message, ip],
+      )
+      persistedId = r.rows[0].id
+    } catch (err) {
+      // Échec base → on continue vers l'email (dégradation douce), mais on le logge.
+      console.error('[contact] base KO:', err?.message)
+    }
+  }
+
+  // Envoi email (envoi vers boîte admin). Si SMTP absent, OK si au moins persisté.
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM, CONTACT_TO } = process.env
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS || !CONTACT_TO) {
-    return res.status(503).json({
-      ok: false,
-      error: 'SMTP non configuré côté serveur. Utilisez le repli mailto.',
-    })
+  let emailOk = false
+  if (SMTP_HOST && SMTP_USER && SMTP_PASS && CONTACT_TO) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: SMTP_HOST,
+        port: Number(SMTP_PORT || 587),
+        secure: Number(SMTP_PORT || 587) === 465,
+        auth: { user: SMTP_USER, pass: SMTP_PASS },
+      })
+      await transporter.sendMail({
+        from: SMTP_FROM || SMTP_USER,
+        to: CONTACT_TO,
+        replyTo: `${nom} <${email}>`,
+        subject: `[Portfolio] ${sujet} — ${nom}`,
+        text: `Nom : ${nom}\nEmail : ${email}\n\n${message}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:600px;margin:auto;border:1px solid #eee;border-radius:8px;overflow:hidden">
+            <div style="background:#0b0f0e;color:#ff5b2e;padding:16px 24px;font-weight:bold">
+              Nouveau message — Portfolio René Descartes${persistedId ? ` · #${persistedId}` : ''}
+            </div>
+            <div style="padding:24px">
+              <p><strong>Nom :</strong> ${nom.replace(/</g, '&lt;')}</p>
+              <p><strong>Email :</strong> <a href="mailto:${email}">${email.replace(/</g, '&lt;')}</a></p>
+              <p><strong>Sujet :</strong> ${sujet.replace(/</g, '&lt;')}</p>
+              <hr style="border:none;border-top:1px solid #eee;margin:20px 0" />
+              <p style="white-space:pre-wrap">${message.replace(/</g, '&lt;')}</p>
+            </div>
+          </div>`,
+      })
+      emailOk = true
+    } catch (err) {
+      console.error('[contact] SMTP KO:', err?.message)
+    }
   }
 
-  try {
-    const transporter = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: Number(SMTP_PORT || 587),
-      secure: Number(SMTP_PORT || 587) === 465,
-      auth: { user: SMTP_USER, pass: SMTP_PASS },
-    })
-
-    await transporter.sendMail({
-      from: SMTP_FROM || SMTP_USER,
-      to: CONTACT_TO,
-      replyTo: `${nom} <${email}>`,
-      subject: `[Portfolio] ${sujet} — ${nom}`,
-      text: `Nom : ${nom}\nEmail : ${email}\n\n${message}`,
-      html: `
-        <div style="font-family:sans-serif;max-width:600px;margin:auto;border:1px solid #eee;border-radius:8px;overflow:hidden">
-          <div style="background:#0b0f0e;color:#f0b429;padding:16px 24px;font-weight:bold">Nouveau message — Portfolio René Descartes</div>
-          <div style="padding:24px">
-            <p><strong>Nom :</strong> ${nom.replace(/</g, '&lt;')}</p>
-            <p><strong>Email :</strong> <a href="mailto:${email}">${email.replace(/</g, '&lt;')}</a></p>
-            <p><strong>Sujet :</strong> ${sujet.replace(/</g, '&lt;')}</p>
-            <hr style="border:none;border-top:1px solid #eee;margin:20px 0" />
-            <p style="white-space:pre-wrap">${message.replace(/</g, '&lt;')}</p>
-          </div>
-        </div>`,
-    })
-
-    return res.status(200).json({ ok: true })
-  } catch (err) {
-    console.error('[contact] envoi échoué:', err)
-    return res.status(500).json({ ok: false, error: "Échec de l'envoi." })
+  if (persistedId || emailOk) {
+    return sendJSON(res, 200, { id: persistedId })
   }
+  return sendJSON(res, 503, {
+    error: 'Stockage et envoi indisponibles. Utilisez le repli mailto.',
+  })
 }

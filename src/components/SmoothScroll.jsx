@@ -1,26 +1,18 @@
-import { ReactLenis, useLenis } from 'lenis/react'
-import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { ReactLenis } from 'lenis/react'
 import { useEffect, useRef } from 'react'
-
-gsap.registerPlugin(ScrollTrigger)
 
 /** Hauteur de décalage sous le header fixe pour les ancres. */
 const ANCHOR_OFFSET = -84
 
 /**
- * Smooth scroll Lenis + synchronisation GSAP ScrollTrigger.
+ * Smooth scroll Lenis (sans gsap : les animations scroll-driven passent
+ * désormais par useScroll de framer-motion, qui lit le scroll natif).
  * root=true : Lenis pilote le scroll natif de la fenêtre.
  * Expose l'instance sur window.__lenis et fait défiler tous les liens
  * internes (#ancre) en douceur (nav, drawer, footer, boutons).
  */
 export default function SmoothScroll({ children }) {
   const lenisRef = useRef(null)
-
-  // Liaison officielle Lenis ↔ ScrollTrigger
-  useLenis(() => {
-    ScrollTrigger.update()
-  })
 
   useEffect(() => {
     const lenis = lenisRef.current?.lenis
@@ -40,12 +32,8 @@ export default function SmoothScroll({ children }) {
     }
 
     document.addEventListener('click', onClick)
-    const onScroll = () => ScrollTrigger.update()
-    lenis.on('scroll', onScroll)
-
     return () => {
       document.removeEventListener('click', onClick)
-      lenis.off('scroll', onScroll)
       window.__lenis = undefined
     }
   }, [])

@@ -1,11 +1,8 @@
-import { useEffect, useRef } from 'react'
-import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { useRef } from 'react'
+import { motion, useScroll, useTransform } from 'framer-motion'
 import { timeline } from '../data/content'
 import { Reveal } from './motion'
 import SectionHeading from './SectionHeading'
-
-gsap.registerPlugin(ScrollTrigger)
 
 /**
  * Parcours — flux d'animation : la ligne se dessine au scroll et chaque
@@ -13,25 +10,8 @@ gsap.registerPlugin(ScrollTrigger)
  */
 export default function Journey() {
   const wrap = useRef(null)
-  const flowRef = useRef(null)
-
-  useEffect(() => {
-    const el = wrap.current
-    if (!el) return
-    const ctx = gsap.context(() => {
-      gsap.fromTo(
-        flowRef.current,
-        { scaleY: 0 },
-        {
-          scaleY: 1,
-          ease: 'none',
-          transformOrigin: 'top center',
-          scrollTrigger: { trigger: el, start: 'top 72%', end: 'bottom 62%', scrub: 0.6 },
-        },
-      )
-    }, el)
-    return () => ctx.revert()
-  }, [])
+  const { scrollYProgress } = useScroll({ target: wrap, offset: ['start 72%', 'end 62%'] })
+  const scaleY = useTransform(scrollYProgress, [0, 1], [0, 1])
 
   return (
     <section id="parcours" className="relative py-24 md:py-32">
@@ -50,11 +30,10 @@ export default function Journey() {
             style={{ background: 'var(--border)' }}
           />
           {/* flux accent qui se dessine au scroll */}
-          <span
-            ref={flowRef}
+          <motion.span
             aria-hidden="true"
-            className="absolute left-0 top-3 bottom-8 w-[2px]"
-            style={{ background: 'linear-gradient(180deg, var(--accent), var(--accent-2))' }}
+            className="absolute left-0 top-3 bottom-8 w-[2px] origin-top"
+            style={{ background: 'linear-gradient(180deg, var(--accent), var(--accent-2))', scaleY }}
           />
 
           <div>

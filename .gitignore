@@ -25,6 +25,8 @@ dist-ssr
 
 # env local (secrets)
 .env
+.env.bak
+.env.local
 
 # dossiers internes d'outils
 .zcode/

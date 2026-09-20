@@ -28,6 +28,10 @@
   --orb-1: #ff5b2e;
   --orb-2: #ffb454;
   --orb-3: #ff7a6b;
+  --grid-dot: rgba(255, 91, 46, 0.05);
+  --flame: linear-gradient(90deg, #ff5b2e, #ff8a4d);
+  --section-a: clamp(6rem, 12vw, 9rem);
+  --section-b: clamp(10rem, 18vw, 15rem);
   --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 14px 44px -20px rgba(0, 0, 0, 0.75);
   --shadow-lg: 0 24px 60px -24px rgba(0, 0, 0, 0.85), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
 }
@@ -51,6 +55,10 @@
   --orb-1: #ff8a4d;
   --orb-2: #ffc46b;
   --orb-3: #ff9e8a;
+  --grid-dot: rgba(230, 79, 30, 0.06);
+  --flame: linear-gradient(90deg, #e64f1e, #f0712f);
+  --section-a: clamp(6rem, 12vw, 9rem);
+  --section-b: clamp(10rem, 18vw, 15rem);
   --shadow: 0 1px 2px rgba(46, 36, 26, 0.05), 0 16px 40px -20px rgba(46, 36, 26, 0.18);
   --shadow-lg: 0 24px 60px -24px rgba(46, 36, 26, 0.3), 0 1px 2px rgba(46, 36, 26, 0.05);
 }
@@ -69,10 +77,11 @@
 
 html { overflow-x: clip; }
 
-html.theme-anim *,
-html.theme-anim *::before,
-html.theme-anim *::after {
-  transition: background-color 0.55s ease, color 0.55s ease, border-color 0.55s ease, box-shadow 0.55s ease, fill 0.55s ease, stroke 0.55s ease !important;
+/* Bascule de thème ultra-rapide : PAS de transition globale (elle gelait le thread
+   en animant chaque élément + les couches composites). Le basculement est instantané ;
+   seul le fond global est adouci brièvement (transition déjà sur body ci-dessous). */
+html.theme-anim {
+  /* classe gardée uniquement pour compat ; aucun bloc ne doit la surcharger */
 }
 
 body {
@@ -88,6 +97,43 @@ body {
 
 /* ancres compensées par le header fixe */
 [id] { scroll-margin-top: 92px; }
+
+/* ————— motif « plateau technique » : fine grille de points ————— */
+.grid-dots {
+  background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* ————— révèle un texte par masque (clip-path) ————— */
+.text-mask {
+  display: block;
+  overflow: clip;
+}
+.text-mask > span {
+  display: block;
+  transform: translateY(112%);
+}
+@keyframes text-mask-in {
+  to { transform: translateY(0); }
+}
+.text-mask.is-in > span {
+  animation: text-mask-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ————— trait « flamme » signature ————— */
+.flame-bar {
+  background: var(--flame);
+}
+.flame-text {
+  background: var(--flame);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ————— section rythme : silence / mouvement ————— */
+.section-calme { padding-block: var(--section-a); }
+.section-ample { padding-block: var(--section-b); }
 
 /* scrollbar discrète */
 ::-webkit-scrollbar { width: 11px; }
