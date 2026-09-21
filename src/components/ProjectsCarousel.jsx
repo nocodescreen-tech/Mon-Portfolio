@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useInView, useReducedMotion } from 'framer-motion'
 import { Reveal } from './motion'
 import SectionHeading from './SectionHeading'
 
@@ -57,6 +57,8 @@ export default function ProjectsCarousel() {
   const [idx, setIdx] = useState(0)
   const [dir, setDir] = useState(1)
   const zoneRef = useRef(null)
+  const reduced = useReducedMotion()
+  const inZone = useInView(zoneRef, { amount: 0.3 })
   const p = PROJECTS[idx]
   const total = PROJECTS.length
 
@@ -65,19 +67,29 @@ export default function ProjectsCarousel() {
     setIdx(((next % total) + total) % total)
   }
 
-  // clavier pour accessibilité
+  // clavier : uniquement quand le carrousel est à l'écran — et jamais
+  // depuis un champ de formulaire (les flèches doivent éditer le texte,
+  // pas changer de projet)
   useEffect(() => {
     const onKey = (e) => {
+      if (!inZone) return
+      if (e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable="true"]')) return
       if (e.key === 'ArrowRight') go(idx + 1)
       if (e.key === 'ArrowLeft') go(idx - 1)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idx])
+  }, [idx, inZone])
+
+  // swipe / drag : le visuel bascule au relâchement (seuil sobre)
+  const onDragEnd = (e, info) => {
+    if (info.offset.x < -70 || info.velocity.x < -450) go(idx + 1)
+    else if (info.offset.x > 70 || info.velocity.x > 450) go(idx - 1)
+  }
 
   return (
-    <section id="projets" className="relative section-ample">
+    <section id="projets" className="relative section-ample" aria-roledescription="carrousel">
       <div className="mx-auto w-full max-w-7xl px-6 md:px-10">
         <SectionHeading label="Projets" title="Des outils livrés de A à Z" />
 
@@ -111,6 +123,17 @@ export default function ProjectsCarousel() {
 
           {/* Visuel + détail */}
           <div>
+            {/* zone glissante : le visuel suit le pointeur / le doigt,
+                puis bascule. touch-action pan-y : le scroll vertical passe. */}
+            <motion.div
+              drag={reduced ? false : 'x'}
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.14}
+              dragMomentum={false}
+              onDragEnd={onDragEnd}
+              className="cursor-grab active:cursor-grabbing"
+              style={{ touchAction: 'pan-y' }}
+            >
             <AnimatePresence mode="wait" custom={dir}>
               <motion.div
                 key={idx}
@@ -121,9 +144,15 @@ export default function ProjectsCarousel() {
                 transition={{ duration: 0.5, ease: EASE }}
               >
                 {/* grand visuel */}
-                <div className="relative overflow-hidden rounded-2xl border-[1.5px] t-border transition-colors duration-500 t-surface t-shadow">
+                <div className="group relative overflow-hidden rounded-2xl border-[1.5px] t-border transition-colors duration-500 t-surface t-shadow" data-cursor="Glisser">
                   <div className="relative h-[52vh] min-h-[340px] overflow-hidden">
-                    <img src={p.image} alt={p.alt} className="h-full w-full object-cover object-top" loading="lazy" />
+                    <img
+                      src={p.image}
+                      alt={p.alt}
+                      draggable={false}
+                      loading="lazy"
+                      className="h-full w-full object-cover object-top transition-transform duration-[900ms] ease-out group-hover:scale-[1.04]"
+                    />
                     <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 45%, var(--bg) 100%)' }} aria-hidden="true" />
                     {/* numero géant filigrane */}
                     <span aria-hidden="true" className="absolute left-6 top-3 font-display text-7xl font-bold leading-none opacity-90 md:text-9xl" style={{ WebkitTextFillColor: 'transparent', backgroundImage: 'var(--flame)', WebkitBackgroundClip: 'text', backgroundClip: 'text' }}>
@@ -165,6 +194,7 @@ export default function ProjectsCarousel() {
                       href={p.href}
                       target={p.external ? '_blank' : undefined}
                       rel={p.external ? 'noreferrer' : undefined}
+                      data-cursor={p.external ? 'Ouvrir' : 'Découvrir'}
                       className="cta-glow mt-7 inline-flex items-center gap-2 rounded-full px-6 py-3 font-medium text-white hover:brightness-110"
                       style={{ background: 'var(--flame)' }}
                     >
@@ -175,16 +205,27 @@ export default function ProjectsCarousel() {
                 </div>
               </motion.div>
             </AnimatePresence>
+            </motion.div>
 
-            {/* flèches de navigation + compteur */}
+            {/* flèches + progression + compteur */}
             <div className="mt-6 flex items-center gap-3">
-              <button type="button" onClick={() => go(idx - 1)} aria-label="Projet précédent" className="grid h-12 w-12 place-items-center rounded-full border t-border transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]">
+              <button type="button" onClick={() => go(idx - 1)} aria-label="Projet précédent" className="grid h-12 w-12 shrink-0 place-items-center rounded-full border t-border transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]">
                 <i className="fa-solid fa-arrow-left" aria-hidden="true" />
               </button>
-              <button type="button" onClick={() => go(idx + 1)} aria-label="Projet suivant" className="grid h-12 w-12 place-items-center rounded-full border t-border transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]">
+              <button type="button" onClick={() => go(idx + 1)} aria-label="Projet suivant" className="grid h-12 w-12 shrink-0 place-items-center rounded-full border t-border transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]">
                 <i className="fa-solid fa-arrow-right" aria-hidden="true" />
               </button>
-              <span className="ml-auto font-mono text-sm t-text3">{p.n} <span className="mx-1 opacity-40">/</span> 0{total}</span>
+              {/* progression fine scrubée — où l'on en est, sans surprise */}
+              <span aria-hidden="true" data-testid="carousel-progress" className="ml-2 h-[2px] flex-1 overflow-hidden rounded-full" style={{ background: 'var(--bg-3)' }}>
+                <motion.span
+                  className="block h-full origin-left rounded-full"
+                  style={{ background: 'linear-gradient(90deg, var(--accent), var(--accent-2))' }}
+                  initial={false}
+                  animate={{ scaleX: (idx + 1) / total }}
+                  transition={{ duration: 0.55, ease: EASE }}
+                />
+              </span>
+              <span className="font-mono text-sm t-text3" aria-live="polite">{p.n} <span className="mx-1 opacity-40">/</span> 0{total}</span>
             </div>
           </div>
         </div>

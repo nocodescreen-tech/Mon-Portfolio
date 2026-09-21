@@ -1,5 +1,6 @@
 import { profile } from '../data/content'
-import { TitleReveal, Reveal } from './motion'
+import { Reveal } from './motion'
+import SplitWords from './SplitWords'
 import ContactForm from './ContactForm'
 import Button from './Button'
 import Card from './Card'
@@ -10,10 +11,10 @@ import Card from './Card'
  */
 export default function Contact() {
   const channels = [
-    { icon: 'fa-brands fa-whatsapp', label: 'WhatsApp', value: 'Message direct', href: `${profile.whatsapp}?text=${encodeURIComponent(profile.whatsappMsg)}`, external: true },
-    { icon: 'fa-solid fa-envelope', label: 'Email', value: profile.email, href: `mailto:${profile.email}` },
-    { icon: 'fa-brands fa-github', label: 'GitHub', value: 'github.com/nocodescreen-tech', href: profile.links.github, external: true },
-    { icon: 'fa-brands fa-linkedin-in', label: 'LinkedIn', value: 'René Descartes', href: profile.links.linkedin, external: true },
+    { icon: 'fa-brands fa-whatsapp', label: 'WhatsApp', value: 'Message direct', href: `${profile.whatsapp}?text=${encodeURIComponent(profile.whatsappMsg)}`, external: true, cursor: 'Écrire' },
+    { icon: 'fa-solid fa-envelope', label: 'Email', value: profile.email, href: `mailto:${profile.email}`, cursor: 'Écrire' },
+    { icon: 'fa-brands fa-github', label: 'GitHub', value: 'github.com/nocodescreen-tech', href: profile.links.github, external: true, cursor: 'Voir' },
+    { icon: 'fa-brands fa-linkedin-in', label: 'LinkedIn', value: 'René Descartes', href: profile.links.linkedin, external: true, cursor: 'Voir' },
   ]
 
   return (
@@ -26,7 +27,7 @@ export default function Contact() {
             <span aria-hidden="true" className="h-px w-10" style={{ background: 'linear-gradient(90deg, var(--accent), transparent)' }} />
           </p>
           <h2 className="mt-4 font-display text-[clamp(2.6rem,8vw,5rem)] font-semibold leading-[1] tracking-tight t-text" style={{ letterSpacing: '-0.02em' }}>
-            <TitleReveal>Parlons de votre projet</TitleReveal>
+            <SplitWords text="Parlons de votre projet" />
           </h2>
           <Reveal>
             <p className="mt-6 text-lg leading-relaxed t-text2">
@@ -47,6 +48,7 @@ export default function Contact() {
                   rel={c.external ? 'noreferrer' : undefined}
                   hover
                   spotlight
+                  data-cursor={c.cursor}
                   className="group flex items-center gap-5 p-5"
                 >
                   <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-lg" style={{ background: 'var(--surface-2)', color: 'var(--accent)' }}>

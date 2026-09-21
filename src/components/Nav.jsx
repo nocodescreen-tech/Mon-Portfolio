@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useScroll, useMotionValueEvent } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 import { profile } from '../data/content'
 import Logo from './Logo'
@@ -32,6 +32,7 @@ export default function Nav() {
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState('')
+  const [hidden, setHidden] = useState(false)
   const burgerRef = useRef(null)
   const closeRef = useRef(null)
   const firstFocus = useRef(true)
@@ -42,6 +43,15 @@ export default function Nav() {
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  // nav intelligente : elle s'efface quand on descend lire, revient dès
+  // que l'on remonte (ou que le tiroir s'ouvre) — jamais près du sommet
+  const { scrollY } = useScroll()
+  useMotionValueEvent(scrollY, 'change', (y) => {
+    const prev = scrollY.getPrevious() ?? 0
+    if (y > prev + 3 && y > 240) setHidden(true)
+    else if (y < prev - 3) setHidden(false)
+  })
 
   // verrouille le scroll de la page quand le tiroir est ouvert
   useEffect(() => {
@@ -96,8 +106,8 @@ export default function Nav() {
     <>
       <motion.header
         initial={{ y: -60, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6, ease: EASE, delay: 0.1 }}
+        animate={{ y: hidden && !open ? '-110%' : 0, opacity: 1 }}
+        transition={{ duration: 0.45, ease: EASE }}
         className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
           scrolled ? 'border-b py-3 backdrop-blur-xl' : 'border-b border-transparent py-5'
         }`}
@@ -113,9 +123,19 @@ export default function Nav() {
                 key={l.href}
                 href={l.href}
                 aria-current={active === l.href ? 'true' : undefined}
-                className={`nav-link whitespace-nowrap text-[13px] transition-colors duration-300 ${active === l.href ? 'is-active t-accent' : 't-text2 hover:t-accent'}`}
+                className={`nav-link whitespace-nowrap text-[13px] transition-colors duration-300 ${active === l.href ? 't-accent' : 't-text2 hover:t-accent'}`}
               >
                 {l.label}
+                {/* soulignement partagé : glisse d'un lien à l'autre */}
+                {active === l.href && (
+                  <motion.span
+                    layoutId="nav-active-line"
+                    aria-hidden="true"
+                    className="absolute inset-x-0 -bottom-[5px] h-[1.5px] rounded-full"
+                    style={{ background: 'linear-gradient(90deg, var(--accent), var(--accent-2))' }}
+                    transition={{ duration: 0.4, ease: EASE }}
+                  />
+                )}
               </a>
             ))}
 

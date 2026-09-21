@@ -1,6 +1,7 @@
 import ScrollProgress from './components/ScrollProgress'
 import SmoothScroll from './components/SmoothScroll'
-import FadeSection from './components/FadeSection'
+import CursorLabel from './components/CursorLabel'
+import SectionReveal from './components/SectionReveal'
 import Nav from './components/Nav'
 import Opening from './components/Opening'
 import Marquee from './components/Marquee'
@@ -79,17 +80,23 @@ export default function App() {
             contenu, clics traversants ; chunk lazy monté en idle (zéro impact FCP/INP) */}
         <DeferredSplashCursor />
         <Nav />
+        {/* curseur contextuel discret : pastille d'intention au survol
+            (« Glisser », « Découvrir »…) — desktop uniquement, rien au repos */}
+        <CursorLabel />
         <main id="contenu" className="relative z-[1]">
           <Opening />
-          <FadeSection><Marquee /></FadeSection>
-          <FadeSection><ProjectsCarousel /></FadeSection>
-          <FadeSection><CaseStudy /></FadeSection>
-          <FadeSection><Approach /></FadeSection>
-          <FadeSection><Services /></FadeSection>
-          <FadeSection><Skills /></FadeSection>
-          <FadeSection><Journey /></FadeSection>
-          <FadeSection><About /></FadeSection>
-          <FadeSection><Contact /></FadeSection>
+          {/* chaque grande section possède son identité d'entrée propre —
+              wipe, travelling spatial, dérive latérale, perspective, masque —
+              mais toutes partagent le même langage motion (easing, durées) */}
+          <SectionReveal variant="wipe"><Marquee /></SectionReveal>
+          <SectionReveal variant="depth"><ProjectsCarousel /></SectionReveal>
+          <SectionReveal variant="drift" from={1}><CaseStudy /></SectionReveal>
+          <SectionReveal variant="lift"><Approach /></SectionReveal>
+          <SectionReveal variant="mask"><Services /></SectionReveal>
+          <SectionReveal variant="drift" from={-1}><Skills /></SectionReveal>
+          <SectionReveal variant="wipe"><Journey /></SectionReveal>
+          <SectionReveal variant="depth"><About /></SectionReveal>
+          <SectionReveal variant="rise"><Contact /></SectionReveal>
         </main>
         <Footer />
       </div>

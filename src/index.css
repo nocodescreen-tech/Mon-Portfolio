@@ -179,8 +179,8 @@ body {
   transform-origin: left center;
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.nav-link:hover::after,
-.nav-link.is-active::after { transform: scaleX(1); }
+/* l'état actif est porté par le soulignement glissant (layoutId) de Nav.jsx */
+.nav-link:hover::after { transform: scaleX(1); }
 
 /* lien « Aller au contenu » — invisible, apparaît au focus clavier */
 .skip-link {
@@ -202,11 +202,15 @@ body {
 
 /* ————— hovers (interactions fines) ————— */
 .chip-fx {
-  transition: border-color 0.25s ease, color 0.25s ease, background-color 0.25s ease;
+  transition: border-color 0.25s ease, color 0.25s ease, background-color 0.25s ease,
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
 }
 .chip-fx:hover {
   border-color: var(--accent);
   color: var(--text);
+  /* micro-profondeur : la compétence se soulève et s'allume */
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px -12px var(--accent);
 }
 .cta-glow {
   transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease, color 0.3s ease;

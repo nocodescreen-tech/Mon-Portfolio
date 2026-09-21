@@ -1,5 +1,5 @@
-import { useRef } from 'react'
-import { motion, useScroll, useTransform } from 'framer-motion'
+import { useEffect, useRef } from 'react'
+import { motion, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion'
 import { profile } from '../data/content'
 import Button from './Button'
 
@@ -15,6 +15,11 @@ const line = {
  * Hero — écran d'ouverture. Le fond global (SplashCursor) offre déjà
  * la traînée fluide qui suit le curseur ; le hero pose
  * le titre monumental et l'appel à l'action par-dessus.
+ *
+ * Vivant : parallaxe souris multi-couches — badge, titre et actions
+ * dérivent à des vitesses différentes (les actions à contresens, pour
+ * la profondeur). Desktop pointeur fin uniquement, springs doux,
+ * zéro render React par mouvement.
  */
 export default function Opening() {
   const root = useRef(null)
@@ -24,6 +29,31 @@ export default function Opening() {
   const fadeY = useTransform(scrollYProgress, [0, 1], ['0%', '-10%'])
   const fadeOpacity = useTransform(scrollYProgress, [0, 1], [1, 0])
 
+  // parallaxe souris (normalisée -0.5 → 0.5), springs feutrés
+  const mx = useMotionValue(0)
+  const my = useMotionValue(0)
+  const sx = useSpring(mx, { stiffness: 55, damping: 16, mass: 0.75 })
+  const sy = useSpring(my, { stiffness: 55, damping: 16, mass: 0.75 })
+
+  useEffect(() => {
+    if (!window.matchMedia('(pointer: fine)').matches) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const onMove = (e) => {
+      mx.set(e.clientX / window.innerWidth - 0.5)
+      my.set(e.clientY / window.innerHeight - 0.5)
+    }
+    window.addEventListener('pointermove', onMove, { passive: true })
+    return () => window.removeEventListener('pointermove', onMove)
+  }, [mx, my])
+
+  // chaque couche vit à sa vitesse ; les actions dérivent à contresens
+  const badgeX = useTransform(sx, [-0.5, 0.5], [9, -9])
+  const badgeY = useTransform(sy, [-0.5, 0.5], [6, -6])
+  const titleX = useTransform(sx, [-0.5, 0.5], [16, -16])
+  const titleY = useTransform(sy, [-0.5, 0.5], [9, -9])
+  const deepX = useTransform(sx, [-0.5, 0.5], [-22, 22])
+  const deepY = useTransform(sy, [-0.5, 0.5], [-11, 11])
+
   return (
     <section ref={root} id="top" className="relative flex min-h-screen items-center overflow-hidden">
       {/* voile pour la lisibilité du texte */}
@@ -32,36 +62,43 @@ export default function Opening() {
       <div className="relative z-10 mx-auto w-full max-w-6xl px-6 md:px-10">
         <motion.div className="max-w-2xl" style={{ y: fadeY, opacity: fadeOpacity }}>
           {/* dispo */}
-          <motion.div
-            className="flex items-center gap-4"
-            initial={{ opacity: 0, y: -14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, delay: 0.1, ease: EASE }}
-          >
-            <span className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.18em] t-text3">
-              <span
-                className="h-1.5 w-1.5 animate-pulse rounded-full"
-                style={{ background: '#22c55e', boxShadow: '0 0 0 4px rgba(34,197,94,0.14)' }}
-                aria-hidden="true"
-              />
-              Disponible
-            </span>
+          <motion.div style={{ x: badgeX, y: badgeY }}>
+            <motion.div
+              className="flex items-center gap-4"
+              initial={{ opacity: 0, y: -14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, delay: 0.1, ease: EASE }}
+            >
+              <span className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.18em] t-text3">
+                <span
+                  className="h-1.5 w-1.5 animate-pulse rounded-full"
+                  style={{ background: '#22c55e', boxShadow: '0 0 0 4px rgba(34,197,94,0.14)' }}
+                  aria-hidden="true"
+                />
+                Disponible
+              </span>
+            </motion.div>
           </motion.div>
 
           {/* titre */}
-          <h1 className="mt-8 font-display font-semibold leading-[1.02] tracking-tight t-text" style={{ letterSpacing: '-0.03em' }}>
-            <span className="block overflow-hidden">
-              <motion.span variants={line} custom={0} initial="hidden" animate="show" className="block text-[clamp(3.2rem,10vw,7rem)]">
-                René
-              </motion.span>
-            </span>
-            <span className="block overflow-hidden">
-              <motion.span variants={line} custom={1} initial="hidden" animate="show" className="block text-[clamp(3.2rem,10vw,7rem)]" style={{ color: 'var(--accent)', WebkitTextFillColor: 'transparent', backgroundImage: 'var(--flame)', WebkitBackgroundClip: 'text', backgroundClip: 'text' }}>
-                Descartes
+          <motion.div style={{ x: titleX, y: titleY }}>
+            <h1 className="mt-8 font-display font-semibold leading-[1.02] tracking-tight t-text" style={{ letterSpacing: '-0.03em' }}>
+              <span className="block overflow-hidden">
+                <motion.span variants={line} custom={0} initial="hidden" animate="show" className="block text-[clamp(3.2rem,10vw,7rem)]">
+                  René
+                </motion.span>
+              </span>
+              <span className="block overflow-hidden">
+                <motion.span variants={line} custom={1} initial="hidden" animate="show" className="block text-[clamp(3.2rem,10vw,7rem)]" style={{ color: 'var(--accent)', WebkitTextFillColor: 'transparent', backgroundImage: 'var(--flame)', WebkitBackgroundClip: 'text', backgroundClip: 'text' }}>
+                  Descartes
               </motion.span>
             </span>
           </h1>
+          </motion.div>
 
+          {/* couche de premier plan : rôle, promesse et actions dérivent à
+              contresens du titre — la profondeur devient lisible */}
+          <motion.div style={{ x: deepX, y: deepY }}>
           {/* rôle */}
           <motion.p
             className="mt-6 font-display text-xl font-medium t-text md:text-2xl"
@@ -95,6 +132,7 @@ export default function Opening() {
             <Button href={`mailto:${profile.email}`} variant="ghost" iconEnd={false}>
               Me contacter
             </Button>
+          </motion.div>
           </motion.div>
         </motion.div>
       </div>
