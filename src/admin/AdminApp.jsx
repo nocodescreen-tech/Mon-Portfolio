@@ -38,13 +38,19 @@ function Login({ onLogin }) {
   const submit = async (e) => {
     e.preventDefault()
     setBusy(true); setErr('')
-    const r = await j('POST', '/api/admin/login', { email, motDePasse: pw })
-    setBusy(false)
-    if (!r.ok) {
-      if (r.status === 429) return setErr('Trop de tentatives. Réessayez dans 15 minutes.')
-      return setErr(r.data.error || 'Échec de connexion.')
+    try {
+      const r = await j('POST', '/api/admin/login', { email, motDePasse: pw })
+      setBusy(false)
+      if (!r.ok) {
+        if (r.status === 429) return setErr('Trop de tentatives. Réessayez dans 15 minutes.')
+        return setErr(r.data.error || 'Échec de connexion.')
+      }
+      onLogin(r.data.admin)
+    } catch {
+      // API injoignable (offline/maintenance) : pas d'exception non gérée
+      setBusy(false)
+      setErr('Service indisponible. Réessayez plus tard.')
     }
-    onLogin(r.data.admin)
   }
 
   return (
@@ -217,12 +223,17 @@ export default function AdminApp() {
 
   const load = useCallback(async () => {
     // Si cookie valide → messages + stats ; sinon 401 → écran de connexion.
-    const r = await j('GET', '/api/admin/messages?limite=50')
-    if (r.status === 401) { setAuthFailed(true); setAdmin(null); return }
-    if (r.ok) setMessages(r.data.messages)
-    const s = await j('GET', '/api/admin/stats')
-    if (s.status === 401) { setAuthFailed(true); setAdmin(null); return }
-    if (s.ok) setStats(s.data.stats)
+    try {
+      const r = await j('GET', '/api/admin/messages?limite=50')
+      if (r.status === 401) { setAuthFailed(true); setAdmin(null); return }
+      if (r.ok) setMessages(r.data.messages)
+      const s = await j('GET', '/api/admin/stats')
+      if (s.status === 401) { setAuthFailed(true); setAdmin(null); return }
+      if (s.ok) setStats(s.data.stats)
+    } catch {
+      // API injoignable (offline/maintenance) : écran de connexion, pas d'exception
+      setAuthFailed(true); setAdmin(null)
+    }
   }, [])
 
   // Vérifie la session au montage (cookie envoyé automatiquement).
