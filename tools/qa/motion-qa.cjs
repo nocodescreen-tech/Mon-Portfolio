@@ -125,17 +125,17 @@ async function main() {
     })
     record('D5 nav s\'efface en descendant, revient en remontant', headerHidden && headerShown, 'hidden=' + headerHidden + ' shown=' + headerShown)
 
-    // D6 — curseur contextuel : pastille au survol du visuel
+    // D6 — curseur contextuel : la slide active annonce l'action « Ouvrir »
     await p.evaluate(() => document.getElementById('projets').scrollIntoView())
     await p.waitForTimeout(600)
-    await p.locator('[data-cursor="Glisser"]').first().hover()
+    await p.locator('[data-stage-slide][data-offset="0"]').hover()
     await p.waitForTimeout(350)
     const label = await p.evaluate(() => {
       const els = Array.from(document.querySelectorAll('span'))
-      const fixed = els.find((el) => el.textContent.trim() === 'Glisser' && el.closest('.fixed'))
+      const fixed = els.find((el) => el.textContent.trim() === 'Ouvrir' && el.closest('.fixed'))
       return fixed ? fixed.textContent.trim() : null
     })
-    record('D6 pastille curseur « Glisser » au survol', label === 'Glisser', 'label=' + label)
+    record('D6 pastille curseur « Ouvrir » au survol de la slide', label === 'Ouvrir', 'label=' + label)
     await p.mouse.move(40, 500) // quitte la zone
     await p.waitForTimeout(300)
 

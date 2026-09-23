@@ -6,7 +6,7 @@
 export function createPerfMonitor({
   windowMs = 700, // ~42 frames à 60 fps par fenêtre d'échantillon
   badFps = 50,
-  criticalFps = 35,
+  criticalFps = 30, // en dessous de 30 fps soutenu au plancher LOW, l'effet cède
   badWindowsNeeded = 3, // 3 fenêtres (~2 s) sous 50 fps avant de descendre
   criticalWindowsNeeded = 3, // ~2 s soutenu sous 35 fps : signal device faible fiable
   cooldownMs = 4000,

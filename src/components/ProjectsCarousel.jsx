@@ -1,78 +1,56 @@
 import { useState, useRef, useEffect } from 'react'
 import { AnimatePresence, motion, useInView, useReducedMotion } from 'framer-motion'
-import { Reveal } from './motion'
 import SectionHeading from './SectionHeading'
+import Stage3D from './projects/Stage3D'
+import DetailOverlay from './projects/DetailOverlay'
+import { PROJECTS } from './projects/data'
 
 const EASE = [0.22, 1, 0.36, 1]
 
-/* Contenu réel des projets (source unique alignée sur /data/content & les liens live). */
-const PROJECTS = [
-  {
-    n: '01', tag: 'Projet de référence', title: 'LUMO',
-    role: 'Conçu et développé de A à Z',
-    image: '/lumo/screen1.png', alt: 'Interface LUMO — mouvements de stock',
-    href: '#lumo', cta: "Voir l'étude de cas", external: false,
-    stack: ['React', 'Node.js', 'PostgreSQL'],
-    context: 'Les petits commerces suivaient ventes et stocks sur des cahiers.',
-    problem: 'Aucune visibilité sur les entrées, sorties et niveaux de stock au quotidien.',
-    result: 'Une plateforme de gestion commerciale centralisée, déployée en production.',
-    scope: ['Ventes & caisse', 'Achats', 'Stocks & produits', 'Clients & fournisseurs', 'Rôles (RBAC)', 'Tableau de bord'],
-  },
-  {
-    n: '02', tag: 'Plateforme touristique', title: 'Visit.toi',
-    role: 'Conçu et développé de A à Z · Design & motion',
-    image: '/visit-toi/cover.svg', alt: 'Visit.toi — plateforme touristique communautaire pour la RDC',
-    href: '#contact', cta: 'Discuter de ce projet', external: false,
-    stack: ['React', 'TypeORM', 'PostgreSQL', 'Mapbox'],
-    context: 'Découvrir les lieux et merveilles de la RDC, sans données fiables ni interface soignée.',
-    problem: 'Informations dispersées et peu fiables sur les sites touristiques du pays.',
-    result: 'Une plateforme communautaire : carte interactive, favoris, avis, profils et console de modération.',
-    scope: ['Carte interactive', 'Favoris', 'Avis', 'Profils', 'Console de modération'],
-  },
-  {
-    n: '03', tag: 'Génération de CV', title: 'CV Studio',
-    role: 'Design & code · Génération de CV',
-    image: '/cvstudio/screen1.png', alt: 'CV Studio — générateur de CV professionnel en ligne',
-    href: 'https://cv-studio-jade.vercel.app/', cta: 'Voir le site live', external: true,
-    stack: ['React', 'Tailwind', 'Vercel'],
-    context: 'Créer un CV professionnel moderne, sans outil payant ni gabarit rigide.',
-    problem: 'Des CV génériques, coûteux à produire, difficilement personnalisables.',
-    result: 'Un studio en ligne pour composer et exporter des CV soignés — en production.',
-    scope: ['Éditeur de contenu', 'Modèles', 'Export PDF', 'Publication'],
-  },
-  {
-    n: '04', tag: 'Projet réel', title: 'Ce portfolio',
-    role: 'Design & code · Motion · Frontend',
-    image: '/portfolio-cover.png', alt: 'René Descartes — portfolio, image de marque',
-    href: '#contact', cta: 'Créer un projet similaire', external: false,
-    stack: ['React', 'Vite', 'Motion'],
-    context: "Comment montrer un travail sérieux, sans ressembler à un site tout fait ?",
-    problem: 'Un portfolio efficace doit montrer le design ET le code, sans gabarit.',
-    result: "Un site conçu à la main : traînée fluide au curseur, motion design, thème clair/sombre.",
-    scope: ['Design éditorial', 'Motion design', 'Thème clair/sombre', 'Backend contact'],
-  },
-]
-
+/**
+ * Projets — showcase premium à profondeur (ex-carousel).
+ *
+ * La scène 3D (Stage3D) montre le projet actif au premier plan entouré de
+ * ses voisins ; chaque projet expose plusieurs vues légendées (LUMO en a
+ * 5 réelles). Clic sur le visuel → vue détaillée immersive (DetailOverlay)
+ * avec continuité spatiale : l'image cliquée s'agrandit réellement (FLIP
+ * layoutId), galerie complète, navigation projet ↔ projet.
+ *
+ * Conservé : contenus, liens, index latéral, fiche éditoriale, flèches,
+ * progression, compteur aria-live, clavier scopé, drag/swipe, labels
+ * curseur contextuels.
+ */
 export default function ProjectsCarousel() {
   const [idx, setIdx] = useState(0)
   const [dir, setDir] = useState(1)
+  const [views, setViews] = useState(() => PROJECTS.map(() => 0))
+  const [detail, setDetail] = useState(false)
+  const [sourceProject, setSourceProject] = useState(null)
   const zoneRef = useRef(null)
   const reduced = useReducedMotion()
-  const inZone = useInView(zoneRef, { amount: 0.3 })
+  const inZone = useInView(zoneRef, { amount: 0.25 })
   const p = PROJECTS[idx]
   const total = PROJECTS.length
 
   const go = (next) => {
-    setDir(next > idx ? 1 : -1)
-    setIdx(((next % total) + total) % total)
+    const target = (((next % total) + total) % total)
+    setDir(target > idx ? 1 : -1)
+    setIdx(target)
   }
 
-  // clavier : uniquement quand le carrousel est à l'écran — et jamais
-  // depuis un champ de formulaire (les flèches doivent éditer le texte,
-  // pas changer de projet)
+  // vue du projet actif (persiste par projet — §34)
+  const setView = (v) => setViews((prev) => prev.map((x, j) => (j === idx ? v : x)))
+
+  const openDetail = () => {
+    setSourceProject(PROJECTS[idx].n)
+    setDetail(true)
+  }
+
+  // clavier : uniquement quand la section est à l'écran, jamais depuis un
+  // champ, jamais pendant la vue détaillée (qui a son propre clavier)
   useEffect(() => {
     const onKey = (e) => {
-      if (!inZone) return
+      if (!inZone || detail) return
       if (e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable="true"]')) return
       if (e.key === 'ArrowRight') go(idx + 1)
       if (e.key === 'ArrowLeft') go(idx - 1)
@@ -80,13 +58,7 @@ export default function ProjectsCarousel() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idx, inZone])
-
-  // swipe / drag : le visuel bascule au relâchement (seuil sobre)
-  const onDragEnd = (e, info) => {
-    if (info.offset.x < -70 || info.velocity.x < -450) go(idx + 1)
-    else if (info.offset.x > 70 || info.velocity.x > 450) go(idx - 1)
-  }
+  }, [idx, inZone, detail])
 
   return (
     <section id="projets" className="relative section-ample" aria-roledescription="carrousel">
@@ -110,7 +82,6 @@ export default function ProjectsCarousel() {
                   <span className={`hidden transition-colors lg:inline ${active ? 'text-[var(--accent)]' : 'text-[var(--text-3)] group-hover:text-[var(--text-2)]'}`}>
                     {x.n}
                   </span>
-                  {/* barre latérale active */}
                   <span
                     aria-hidden="true"
                     className={`h-[2px] w-6 transition-all duration-300 lg:h-8 lg:w-[2px] ${active ? 'bg-[var(--accent)]' : 'bg-[var(--border-strong)] group-hover:bg-[var(--accent)]/50'}`}
@@ -121,115 +92,110 @@ export default function ProjectsCarousel() {
             })}
           </div>
 
-          {/* Visuel + détail */}
-          <div>
-            {/* zone glissante : le visuel suit le pointeur / le doigt,
-                puis bascule. touch-action pan-y : le scroll vertical passe. */}
-            <motion.div
-              drag={reduced ? false : 'x'}
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.14}
-              dragMomentum={false}
-              onDragEnd={onDragEnd}
-              className="cursor-grab active:cursor-grabbing"
-              style={{ touchAction: 'pan-y' }}
-            >
+          {/* Scène + fiche éditoriale : côte à côte sur grand écran
+              (la section respire, la fiche se lit comme un panneau),
+              empilées sur tablette/mobile */}
+          <div className="grid gap-10 xl:grid-cols-[1.22fr_0.78fr] xl:items-start xl:gap-12">
+            {/* colonne visuelle : la scène (cadre qui clippe les voisines
+                en biseau sur les bords — jamais de débordement) + contrôles */}
+            <div>
+              <div className="overflow-hidden">
+                <Stage3D
+                  projects={PROJECTS}
+                  idx={idx}
+                  view={views[idx]}
+                  onView={setView}
+                  onGo={go}
+                  onOpen={openDetail}
+                />
+              </div>
+
+              {/* flèches + progression + compteur */}
+              <div className="mt-6 flex items-center gap-3">
+                <button type="button" onClick={() => go(idx - 1)} aria-label="Projet précédent" className="grid h-12 w-12 shrink-0 place-items-center rounded-full border t-border transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]">
+                  <i className="fa-solid fa-arrow-left" aria-hidden="true" />
+                </button>
+                <button type="button" onClick={() => go(idx + 1)} aria-label="Projet suivant" className="grid h-12 w-12 shrink-0 place-items-center rounded-full border t-border transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]">
+                  <i className="fa-solid fa-arrow-right" aria-hidden="true" />
+                </button>
+                <span aria-hidden="true" data-testid="carousel-progress" className="ml-2 h-[2px] flex-1 overflow-hidden rounded-full" style={{ background: 'var(--bg-3)' }}>
+                  <motion.span
+                    className="block h-full origin-left rounded-full"
+                    style={{ background: 'linear-gradient(90deg, var(--accent), var(--accent-2))' }}
+                    initial={false}
+                    animate={{ scaleX: (idx + 1) / total }}
+                    transition={{ duration: 0.55, ease: EASE }}
+                  />
+                </span>
+                <span className="font-mono text-sm t-text3" aria-live="polite">{p.n} <span className="mx-1 opacity-40">/</span> 0{total}</span>
+              </div>
+            </div>
+
+            {/* fiche éditoriale — panneau latéral, traverse les projets */}
             <AnimatePresence mode="wait" custom={dir}>
               <motion.div
                 key={idx}
                 custom={dir}
-                initial={{ opacity: 0, x: dir * 48, filter: 'blur(5px)' }}
+                initial={{ opacity: 0, x: dir * 34, filter: 'blur(4px)' }}
                 animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, x: dir * -48, filter: 'blur(5px)' }}
-                transition={{ duration: 0.5, ease: EASE }}
+                exit={{ opacity: 0, x: dir * -34, filter: 'blur(4px)' }}
+                transition={{ duration: reduced ? 0 : 0.38, ease: EASE }}
+                className="rounded-2xl border p-6 t-surface t-border md:p-7"
               >
-                {/* grand visuel */}
-                <div className="group relative overflow-hidden rounded-2xl border-[1.5px] t-border transition-colors duration-500 t-surface t-shadow" data-cursor="Glisser">
-                  <div className="relative h-[52vh] min-h-[340px] overflow-hidden">
-                    <img
-                      src={p.image}
-                      alt={p.alt}
-                      draggable={false}
-                      loading="lazy"
-                      className="h-full w-full object-cover object-top transition-transform duration-[900ms] ease-out group-hover:scale-[1.04]"
-                    />
-                    <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 45%, var(--bg) 100%)' }} aria-hidden="true" />
-                    {/* numero géant filigrane */}
-                    <span aria-hidden="true" className="absolute left-6 top-3 font-display text-7xl font-bold leading-none opacity-90 md:text-9xl" style={{ WebkitTextFillColor: 'transparent', backgroundImage: 'var(--flame)', WebkitBackgroundClip: 'text', backgroundClip: 'text' }}>
-                      {p.n}
-                    </span>
-                    <span className="absolute right-5 top-5 rounded-full border px-3 py-1 font-mono text-[11px] t-accent" style={{ background: 'color-mix(in srgb, var(--bg) 60%, transparent)', borderColor: 'var(--border)' }}>
-                      {p.tag}
-                    </span>
-                  </div>
+                <p className="font-mono text-xs uppercase tracking-[0.2em] t-coral">{p.role}</p>
+                <h3 className="mt-2 font-display text-3xl font-semibold tracking-tight t-text md:text-4xl">{p.title}</h3>
+                <div className="mt-6 space-y-4">
+                  <Row k="Le contexte" v={p.context} />
+                  <Row k="Le problème" v={p.problem} />
+                  <Row k="Le résultat" v={p.result} />
                 </div>
-
-                {/* fiche détaillée */}
-                <div className="mt-8 grid gap-8 md:grid-cols-[1.1fr_0.9fr] md:gap-12">
-                  <div>
-                    <p className="font-mono text-xs uppercase tracking-[0.2em] t-coral">{p.role}</p>
-                    <h3 className="mt-2 font-display text-4xl font-semibold tracking-tight t-text md:text-5xl">{p.title}</h3>
-                    <div className="mt-6 space-y-4">
-                      <Row k="Le contexte" v={p.context} />
-                      <Row k="Le problème" v={p.problem} />
-                      <Row k="Le résultat" v={p.result} />
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border p-6 md:p-7 t-surface t-border">
-                    <div className="font-mono text-[11px] uppercase tracking-wider t-text3">Périmètre livré</div>
-                    <ul className="mt-4 space-y-2.5">
-                      {p.scope.map((s) => (
-                        <li key={s} className="flex items-center gap-3 text-[15px] t-text2">
-                          <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rotate-45" style={{ background: 'var(--accent)' }} />
-                          {s}
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="mt-6 flex flex-wrap gap-2">
-                      {p.stack.map((s) => (
-                        <span key={s} className="rounded-full border px-3 py-1 font-mono text-[12px] t-text2" style={{ borderColor: 'var(--border)' }}>{s}</span>
-                      ))}
-                    </div>
-                    <a
-                      href={p.href}
-                      target={p.external ? '_blank' : undefined}
-                      rel={p.external ? 'noreferrer' : undefined}
-                      data-cursor={p.external ? 'Ouvrir' : 'Découvrir'}
-                      className="cta-glow mt-7 inline-flex items-center gap-2 rounded-full px-6 py-3 font-medium text-white hover:brightness-110"
-                      style={{ background: 'var(--flame)' }}
-                    >
-                      {p.cta}
-                      <i className="fa-solid fa-arrow-right text-sm transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
-                    </a>
-                  </div>
+                <div className="mt-7 border-t pt-5 t-border">
+                  <div className="font-mono text-[11px] uppercase tracking-wider t-text3">Périmètre livré</div>
+                  <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+                    {p.scope.map((s) => (
+                      <li key={s} className="flex items-center gap-2 text-[14px] t-text2">
+                        <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rotate-45" style={{ background: 'var(--accent)' }} />
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {p.stack.map((s) => (
+                    <span key={s} className="rounded-full border px-3 py-1 font-mono text-[12px] t-text2" style={{ borderColor: 'var(--border)' }}>{s}</span>
+                  ))}
+                </div>
+                <a
+                  href={p.href}
+                  target={p.external ? '_blank' : undefined}
+                  rel={p.external ? 'noreferrer' : undefined}
+                  data-cursor={p.external ? 'Ouvrir' : 'Découvrir'}
+                  className="cta-glow mt-7 inline-flex items-center gap-2 rounded-full px-6 py-3 font-medium text-white hover:brightness-110"
+                  style={{ background: 'var(--flame)' }}
+                >
+                  {p.cta}
+                  <i className="fa-solid fa-arrow-right text-sm" aria-hidden="true" />
+                </a>
               </motion.div>
             </AnimatePresence>
-            </motion.div>
-
-            {/* flèches + progression + compteur */}
-            <div className="mt-6 flex items-center gap-3">
-              <button type="button" onClick={() => go(idx - 1)} aria-label="Projet précédent" className="grid h-12 w-12 shrink-0 place-items-center rounded-full border t-border transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]">
-                <i className="fa-solid fa-arrow-left" aria-hidden="true" />
-              </button>
-              <button type="button" onClick={() => go(idx + 1)} aria-label="Projet suivant" className="grid h-12 w-12 shrink-0 place-items-center rounded-full border t-border transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]">
-                <i className="fa-solid fa-arrow-right" aria-hidden="true" />
-              </button>
-              {/* progression fine scrubée — où l'on en est, sans surprise */}
-              <span aria-hidden="true" data-testid="carousel-progress" className="ml-2 h-[2px] flex-1 overflow-hidden rounded-full" style={{ background: 'var(--bg-3)' }}>
-                <motion.span
-                  className="block h-full origin-left rounded-full"
-                  style={{ background: 'linear-gradient(90deg, var(--accent), var(--accent-2))' }}
-                  initial={false}
-                  animate={{ scaleX: (idx + 1) / total }}
-                  transition={{ duration: 0.55, ease: EASE }}
-                />
-              </span>
-              <span className="font-mono text-sm t-text3" aria-live="polite">{p.n} <span className="mx-1 opacity-40">/</span> 0{total}</span>
-            </div>
           </div>
         </div>
       </div>
+
+      {/* vue détaillée immersive — continuité spatiale depuis la slide */}
+      <AnimatePresence>
+        {detail && (
+          <DetailOverlay
+            projects={PROJECTS}
+            idx={idx}
+            view={views[idx]}
+            onView={setView}
+            onGo={go}
+            onClose={() => setDetail(false)}
+            sourceProject={sourceProject}
+          />
+        )}
+      </AnimatePresence>
     </section>
   )
 }

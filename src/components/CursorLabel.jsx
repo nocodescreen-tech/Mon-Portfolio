@@ -39,14 +39,24 @@ export default function CursorLabel() {
       const next = e.relatedTarget instanceof Element ? e.relatedTarget.closest('[data-cursor]') : null
       if (!next) setLabel(null)
     }
+    // pendant un appui / drag : pas de label flottant parasite
+    const onDown = () => setLabel(null)
+    const onUp = (e) => {
+      const el = e.target instanceof Element ? e.target.closest('[data-cursor]') : null
+      setLabel(el ? el.getAttribute('data-cursor') : null)
+    }
 
     window.addEventListener('pointerover', onOver, { passive: true })
     window.addEventListener('pointermove', onMove, { passive: true })
     window.addEventListener('pointerout', onOut, { passive: true })
+    window.addEventListener('pointerdown', onDown, { passive: true })
+    window.addEventListener('pointerup', onUp, { passive: true })
     return () => {
       window.removeEventListener('pointerover', onOver)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerout', onOut)
+      window.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('pointerup', onUp)
     }
   }, [x, y])
 
