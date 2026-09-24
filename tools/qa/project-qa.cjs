@@ -56,6 +56,13 @@ const caption = (page) =>
 const dialogOpen = (page) => page.evaluate(() => !!document.querySelector('[role="dialog"][aria-modal="true"]'))
 
 async function toProjects(page) {
+  // attend que l'app soit montée (un serveur Vite frais transforme les
+  // modules à la première demande — lent sur machine saturée)
+  for (let i = 0; i < 40; i++) {
+    const ok = await page.evaluate(() => !!document.getElementById('projets'))
+    if (ok) break
+    await page.waitForTimeout(500)
+  }
   await page.evaluate(() => document.getElementById('projets').scrollIntoView())
   await page.waitForTimeout(900)
 }
@@ -103,9 +110,10 @@ async function main() {
     // P3 — clic sur la voisine droite : la frange visible est celle qui
     // dépasse la slide active dans le cadre de la scène (≈ 92→100 %)
     const before3 = await counter(p)
-    const wrap3 = await p.evaluate(() =>
-      document.querySelector('[data-cursor="Glisser"]').parentElement.parentElement.getBoundingClientRect(),
-    )
+    const wrap3 = await p.evaluate(() => {
+      const r = document.querySelector('[data-cursor="Glisser"]').parentElement.parentElement.getBoundingClientRect()
+      return { x: r.x, y: r.y, width: r.width, height: r.height }
+    })
     await p.mouse.click(wrap3.x + wrap3.width * 0.96, wrap3.y + wrap3.height * 0.5)
     await p.waitForTimeout(900)
     const after3 = await counter(p)
@@ -274,14 +282,21 @@ async function main() {
     await toProjects(p)
     const active = await p.locator('[data-stage-slide][data-offset="0"]').boundingBox()
     await p.mouse.click(active.x + active.width * 0.5, active.y + active.height * 0.35)
-    await p.waitForTimeout(600)
-    const open = await dialogOpen(p)
-    const title = await p.evaluate(() => document.querySelector('[role="dialog"] h2')?.textContent)
+    let open = false
+    for (let i = 0; i < 10 && !open; i++) {
+      await p.waitForTimeout(300)
+      open = await dialogOpen(p)
+    }
+    let title = null
+    for (let i = 0; i < 10 && !title; i++) {
+      await p.waitForTimeout(300)
+      title = await p.evaluate(() => document.querySelector('[role="dialog"] h2')?.textContent || null)
+    }
     await p.keyboard.press('Escape')
-    await p.waitForTimeout(400)
+    await p.waitForTimeout(600)
     const closed = !(await dialogOpen(p))
     networkErrors += countNetwork(logs)
-    record('P11 reduced-motion : vue détaillée fonctionnelle, Escape OK', open && title === 'LUMO' && closed && realErrors(logs).length === 0, 'dialog=' + open + '→' + closed)
+    record('P11 reduced-motion : vue détaillée fonctionnelle, Escape OK', open && title === 'LUMO' && closed && realErrors(logs).length === 0, 'dialog=' + open + '→' + closed + ' titre=' + title)
     await p.close()
   }
 
