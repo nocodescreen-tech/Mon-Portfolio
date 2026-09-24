@@ -153,10 +153,10 @@ async function main() {
     record('P6 clic slide active → vue détaillée (dialog)', open6 && detailTitle === 'LUMO', 'dialog=' + open6 + ' titre=' + detailTitle)
 
     // P7 — vues dans le détail + Escape
-    const dcap7a = await p.evaluate(() => document.querySelector('[data-testid="detail-caption"]')?.textContent.replace(/\s+/g, ' ').trim())
+    const dcap7a = await p.evaluate(() => document.querySelector('[data-testid="view-caption"]')?.textContent.replace(/\s+/g, ' ').trim())
     await p.keyboard.press('ArrowRight')
     await p.waitForTimeout(500)
-    const dcap7b = await p.evaluate(() => document.querySelector('[data-testid="detail-caption"]')?.textContent.replace(/\s+/g, ' ').trim())
+    const dcap7b = await p.evaluate(() => document.querySelector('[data-testid="view-caption"]')?.textContent.replace(/\s+/g, ' ').trim())
     record('P7a flèches dans le détail → vue suivante', dcap7a !== dcap7b, dcap7a + ' → ' + dcap7b)
     await p.keyboard.press('Escape')
     await p.waitForTimeout(700)
@@ -169,7 +169,7 @@ async function main() {
     const active8 = await p.locator('[data-stage-slide][data-offset="0"]').boundingBox()
     await p.mouse.click(active8.x + active8.width * 0.5, active8.y + active8.height * 0.35)
     await p.waitForTimeout(700)
-    await p.locator('button:has-text("Projet suivant")').click()
+    await p.locator('button:has-text("Suivant")').click()
     await p.waitForTimeout(900)
     const t8 = await p.evaluate(() => document.querySelector('[role="dialog"] h2')?.textContent)
     await p.keyboard.press('Escape')

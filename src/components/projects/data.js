@@ -69,10 +69,16 @@ export const PROJECTS = [
     scope: ['Carte interactive', 'Favoris', 'Avis', 'Profils', 'Console de modération'],
     views: [
       {
-        src: '/visit-toi/cover.svg',
+        src: '/visit-toi/cover.png',
         label: 'Vue d’ensemble',
         note: 'Plateforme touristique communautaire pour la RDC',
         fit: 'cover',
+      },
+      {
+        src: '/visit-toi/mobile.png',
+        label: 'Interface mobile',
+        note: 'Découverte pensée mobile — Explorer, Avis, Favoris',
+        fit: 'contain',
       },
     ],
   },

@@ -4,17 +4,18 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 const EASE = [0.22, 1, 0.36, 1]
 
 /**
- * DetailOverlay — vue détaillée immersive du projet.
+ * DetailOverlay — vue détaillée « étude de cas », présentation cinématique.
  *
- * Continuité spatiale (§36) : le média partage un `layoutId` avec la
- * slide de la scène — l'image cliquée s'agrandit réellement, aucune
- * modale ne « apparaît ». À l'intérieur : galerie complète des vues
- * (object-contain — les interfaces restent lisibles), légendes, fiche
- * éditoriale, CTA existants, et navigation projet ↔ projet (§37).
+ * Continuité spatiale (§36) : le média partage un `layoutId` avec la slide
+ * de la scène — l'image cliquée s'agrandit réellement, aucune modale ne
+ * « apparaît ». À l'intérieur : média héroïque (62 vh, object-contain pour
+ * les interfaces — lisibles en entier), légendes + pagination + compteur
+ * sur le média, corps éditorial typographique (zéro boîte dans la boîte),
+ * CTA existants, et navigation projet ↔ projet en grands panneaux (§37).
  *
- * Accessibilité : dialog aria-modal, focus piégé au bouton fermer puis
- * restitué au déclencheur, Escape ferme, flèches = vues, scroll verrouillé.
- * Reduced-motion : toutes les transitions tombent à 0 (rendu instantané).
+ * Accessibilité : dialog aria-modal, focus posé au bouton fermer puis
+ * restitué au déclencheur (garde StrictMode), Escape ferme, flèches = vues,
+ * scroll verrouillé. Reduced-motion : transitions à 0 (rendu instantané).
  */
 export default function DetailOverlay({ projects, idx, view, onView, onGo, onClose, sourceProject }) {
   const reduced = useReducedMotion()
@@ -58,14 +59,6 @@ export default function DetailOverlay({ projects, idx, view, onView, onGo, onClo
 
   const prevP = projects[(idx - 1 + total) % total]
   const nextP = projects[(idx + 1) % total]
-  const info = {
-    hidden: {},
-    show: { transition: { staggerChildren: 0.05, delayChildren: reduced ? 0 : 0.25 } },
-  }
-  const item = {
-    hidden: { opacity: 0, y: reduced ? 0 : 14 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE } },
-  }
 
   return (
     <motion.div
@@ -77,33 +70,39 @@ export default function DetailOverlay({ projects, idx, view, onView, onGo, onClo
     >
       {/* fond */}
       <motion.div
-        className="lightbox-backdrop fixed inset-0"
+        className="fixed inset-0"
+        style={{ background: 'color-mix(in srgb, var(--bg) 82%, transparent)', backdropFilter: 'blur(14px)' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: reduced ? 0 : 0.3 }}
+        transition={{ duration: reduced ? 0 : 0.32 }}
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* panneau défilant */}
+      {/* présentation défilante */}
       <div className="fixed inset-0 overflow-y-auto overscroll-contain">
-        <div className="relative mx-auto my-[5vh] w-[min(1080px,94vw)] pb-10">
-          {/* fermeture — toujours accessible, focus d'entrée */}
-          <button
-            ref={closeRef}
-            type="button"
-            onClick={onClose}
-            aria-label="Fermer la vue détaillée"
-            className="absolute right-0 top-0 z-[2] grid h-11 w-11 place-items-center rounded-full border transition-colors hover:t-accent"
-            style={{ borderColor: 'var(--border-strong)', background: 'color-mix(in srgb, var(--bg) 82%, transparent)', color: 'var(--text)' }}
-          >
-            <i className="fa-solid fa-xmark text-base" aria-hidden="true" />
-          </button>
+        <div className="mx-auto w-[min(1150px,94vw)] pb-16 pt-[4vh]">
+          {/* barre haute : étude + fermeture */}
+          <div className="flex items-center justify-between gap-4 pb-5">
+            <p className="font-mono text-[11px] uppercase tracking-[0.25em] t-text3">
+              Étude de cas <span className="mx-1 t-accent">{p.n}</span>/ 0{total}
+            </p>
+            <button
+              ref={closeRef}
+              type="button"
+              onClick={onClose}
+              aria-label="Fermer la vue détaillée"
+              className="grid h-11 w-11 place-items-center rounded-full border transition-colors hover:t-accent"
+              style={{ borderColor: 'var(--border-strong)', background: 'color-mix(in srgb, var(--bg) 70%, transparent)', color: 'var(--text)' }}
+            >
+              <i className="fa-solid fa-xmark text-base" aria-hidden="true" />
+            </button>
+          </div>
 
-          {/* média — cible du FLIP (uniquement pour le projet d'origine :
-              changer de projet DANS la vue donne une transition slide,
-              pas un vol parasite). Aspect stable : zéro CLS. */}
+          {/* média cinématique — cible du FLIP (uniquement pour le projet
+              d'origine : changer de projet DANS la vue donne une transition
+              slide, pas un vol parasite) */}
           <motion.div
             key={p.n}
             layoutId={p.n === sourceProject ? 'project-media-' + p.n : undefined}
@@ -111,139 +110,154 @@ export default function DetailOverlay({ projects, idx, view, onView, onGo, onClo
             animate={{ opacity: 1, x: 0 }}
             exit={p.n === sourceProject ? undefined : { opacity: 0, x: reduced ? 0 : 28 }}
             transition={{ duration: reduced ? 0 : 0.5, ease: EASE }}
-            className="relative aspect-[16/10] overflow-hidden rounded-2xl border-[1.5px] t-border t-surface t-shadow-lg"
+            className="group relative h-[62vh] min-h-[420px] overflow-hidden rounded-3xl border-[1.5px] t-border t-surface t-shadow-lg"
           >
-            <AnimatePresence mode="popLayout" initial={false}>
-              <motion.img
-                key={v.src}
-                src={v.src}
-                alt={p.alt}
-                draggable={false}
-                initial={{ opacity: 0, x: 30 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -30 }}
-                transition={{ duration: reduced ? 0 : 0.34, ease: EASE }}
-                className="absolute inset-0 h-full w-full object-contain p-3 md:p-5"
-              />
-            </AnimatePresence>
+            <div className="absolute inset-0 transition-transform duration-[900ms] ease-out group-hover:scale-[1.02]">
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.img
+                  key={v.src}
+                  src={v.src}
+                  alt={p.alt}
+                  draggable={false}
+                  initial={{ opacity: 0, x: 34 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -34 }}
+                  transition={{ duration: reduced ? 0 : 0.34, ease: EASE }}
+                  className={
+                    'absolute inset-0 h-full w-full ' +
+                    (v.fit === 'contain' ? 'object-contain p-5 md:p-9' : 'object-cover object-top')
+                  }
+                />
+              </AnimatePresence>
+            </div>
 
-            {/* chevrons de vues */}
+            {/* dégradé de lisibilité en bas du média */}
+            <div className="absolute inset-x-0 bottom-0 h-40" style={{ background: 'linear-gradient(180deg, transparent, var(--bg) 92%)' }} aria-hidden="true" />
+
+            {/* chevrons de vues — toujours visibles : c'est une galerie */}
             {vs.length > 1 &&
               [
-                { side: 'left', label: 'Vue précédente', fn: () => onView((view - 1 + vs.length) % vs.length), icon: 'fa-chevron-left', pos: 'left-3' },
-                { side: 'right', label: 'Vue suivante', fn: () => onView((view + 1) % vs.length), icon: 'fa-chevron-right', pos: 'right-3' },
+                { label: 'Vue précédente', fn: () => onView((view - 1 + vs.length) % vs.length), icon: 'fa-chevron-left', pos: 'left-4' },
+                { label: 'Vue suivante', fn: () => onView((view + 1) % vs.length), icon: 'fa-chevron-right', pos: 'right-4' },
               ].map((b) => (
                 <button
-                  key={b.side}
+                  key={b.label}
                   type="button"
                   onClick={b.fn}
                   aria-label={b.label}
-                  className={`absolute ${b.pos} top-1/2 z-[2] grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border opacity-0 backdrop-blur-md transition-opacity duration-300 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-[var(--accent)] max-md:opacity-90`}
+                  className={`absolute ${b.pos} top-1/2 z-[2] grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full border backdrop-blur-md transition-all duration-300 hover:scale-105 hover:t-accent focus-visible:outline-2 focus-visible:outline-[var(--accent)] max-md:opacity-90`}
                   style={{ borderColor: 'var(--border-strong)', background: 'color-mix(in srgb, var(--bg) 55%, transparent)', color: 'var(--text)' }}
                 >
                   <i className={`fa-solid ${b.icon}`} aria-hidden="true" />
                 </button>
               ))}
-          </motion.div>
 
-          {/* panneau éditorial — une seule clé unique (jamais en collision
-              avec la clé du média : la réconciliation React doit rester
-              prévisible pour que l'exit d'AnimatePresence se résolve) */}
-          <motion.div
-            key={'panel-' + p.n}
-            initial={{ opacity: 0, y: reduced ? 0 : 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, ease: EASE, delay: reduced ? 0 : 0.18 }}
-          >
-            {/* légende + compteur de vues */}
+            {/* légende + pagination + compteur, posés sur le média */}
             {vs.length > 1 && (
-              <div className="mt-3 flex items-center justify-between gap-4 px-1">
+              <div className="absolute inset-x-0 bottom-0 z-[2] flex items-end justify-between gap-6 p-5 md:p-7">
                 <AnimatePresence mode="wait" initial={false}>
-                  <motion.p
+                  <motion.div
                     key={v.label}
-                    data-testid="detail-caption"
-                    initial={{ opacity: 0, y: 6 }}
+                    data-testid="view-caption"
+                    initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: reduced ? 0 : 0.24, ease: EASE }}
-                    className="text-[13px] t-text2"
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: reduced ? 0 : 0.26, ease: EASE }}
+                    className="min-w-0"
                   >
-                    <span className="font-mono text-[11px] uppercase tracking-wider t-accent">{v.label}</span>
-                    <span className="mx-2 opacity-40">·</span>
-                    {v.note}
-                  </motion.p>
+                    <span className="font-mono text-[11px] uppercase tracking-[0.18em] t-accent">{v.label}</span>
+                    <p className="mt-1 truncate text-[14px] t-text2">{v.note}</p>
+                  </motion.div>
                 </AnimatePresence>
-                <span className="shrink-0 font-mono text-xs t-text3" aria-live="polite">
-                  {String(view + 1).padStart(2, '0')} <span className="mx-0.5 opacity-40">/</span> {String(vs.length).padStart(2, '0')}
-                </span>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <div className="flex items-center gap-1.5" aria-hidden="true">
+                    {vs.map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => onView(i)}
+                        data-testid={`view-seg-${i}`}
+                        className={`h-[3px] rounded-full transition-all duration-300 ${i === view ? 'w-8' : 'w-4 hover:w-6'}`}
+                        style={{ background: i === view ? 'var(--accent)' : 'var(--border-strong)' }}
+                      />
+                    ))}
+                  </div>
+                  <span className="font-mono text-xs t-text3" aria-live="polite">
+                    {String(view + 1).padStart(2, '0')} <span className="mx-0.5 opacity-40">/</span> {String(vs.length).padStart(2, '0')}
+                  </span>
+                </div>
               </div>
             )}
+          </motion.div>
 
-            {/* fiche éditoriale — mêmes contenus que la scène */}
-            <motion.div
-              variants={info}
-              initial="hidden"
-              animate="show"
-              className="mt-6 grid gap-8 md:grid-cols-[1.15fr_0.85fr] md:gap-12"
-            >
-              <div>
-                <motion.p variants={item} className="font-mono text-xs uppercase tracking-[0.2em] t-coral">{p.role}</motion.p>
-                <motion.h2 variants={item} className="mt-2 font-display text-4xl font-semibold tracking-tight t-text md:text-5xl">{p.title}</motion.h2>
-                <motion.p variants={item} className="mt-5 text-lg leading-relaxed t-text2">{p.result}</motion.p>
-                <motion.div variants={item} className="mt-6 flex flex-wrap gap-2">
-                  {p.stack.map((s) => (
-                    <span key={s} className="rounded-full border px-3 py-1 font-mono text-[12px] t-text2" style={{ borderColor: 'var(--border)' }}>{s}</span>
-                  ))}
-                </motion.div>
+          {/* corps éditorial — typographique, zéro boîte dans la boîte */}
+          <motion.div
+            key={'panel-' + p.n}
+            initial={{ opacity: 0, y: reduced ? 0 : 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: EASE, delay: reduced ? 0 : 0.18 }}
+            className="mt-10 grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:gap-14"
+          >
+            <div>
+              <p className="font-mono text-xs uppercase tracking-[0.2em] t-coral">{p.role}</p>
+              <h2 className="mt-3 font-display text-[clamp(2.4rem,5vw,3.6rem)] font-semibold leading-[1.05] tracking-tight t-text" style={{ letterSpacing: '-0.02em' }}>
+                {p.title}
+              </h2>
+              <p className="mt-6 text-lg leading-relaxed t-text2">{p.result}</p>
+              <div className="mt-7 flex flex-wrap gap-2">
+                {p.stack.map((s) => (
+                  <span key={s} className="rounded-full border px-3 py-1 font-mono text-[12px] t-text2" style={{ borderColor: 'var(--border)' }}>{s}</span>
+                ))}
               </div>
-              <motion.div variants={item} className="rounded-2xl border p-6 t-surface t-border">
-                <div className="font-mono text-[11px] uppercase tracking-wider t-text3">Périmètre livré</div>
-                <ul className="mt-4 space-y-2.5">
-                  {p.scope.map((s) => (
-                    <li key={s} className="flex items-center gap-3 text-[15px] t-text2">
-                      <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rotate-45" style={{ background: 'var(--accent)' }} />
-                      {s}
-                    </li>
-                  ))}
-                </ul>
-                <a
-                  href={p.href}
-                  target={p.external ? '_blank' : undefined}
-                  rel={p.external ? 'noreferrer' : undefined}
-                  data-cursor={p.external ? 'Ouvrir' : 'Découvrir'}
-                  className="cta-glow mt-6 inline-flex items-center gap-2 rounded-full px-6 py-3 font-medium text-white hover:brightness-110"
-                  style={{ background: 'var(--flame)' }}
-                >
-                  {p.cta}
-                  <i className="fa-solid fa-arrow-right text-sm" aria-hidden="true" />
-                </a>
-              </motion.div>
-            </motion.div>
+            </div>
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-[0.25em] t-text3">Périmètre livré</p>
+              <ul className="mt-2">
+                {p.scope.map((s) => (
+                  <li key={s} className="flex items-center gap-3 border-b py-3 text-[15px] t-text2" style={{ borderColor: 'var(--border)' }}>
+                    <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rotate-45" style={{ background: 'var(--accent)' }} />
+                    {s}
+                  </li>
+                ))}
+              </ul>
+              <a
+                href={p.href}
+                target={p.external ? '_blank' : undefined}
+                rel={p.external ? 'noreferrer' : undefined}
+                data-cursor={p.external ? 'Ouvrir' : 'Découvrir'}
+                className="cta-glow mt-8 inline-flex items-center gap-2 rounded-full px-7 py-3.5 font-medium text-white hover:brightness-110"
+                style={{ background: 'var(--flame)' }}
+              >
+                {p.cta}
+                <i className="fa-solid fa-arrow-right text-sm" aria-hidden="true" />
+              </a>
+            </div>
+          </motion.div>
 
-            {/* navigation projet ↔ projet (§37) — la galerie continue */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: reduced ? 0 : 0.35, duration: 0.4 }}
-              className="mt-10 flex items-stretch justify-between gap-3 border-t pt-6 t-border"
+          {/* navigation projet ↔ projet — grands panneaux, la galerie continue */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: reduced ? 0 : 0.35, duration: 0.4 }}
+            className="mt-14 grid grid-cols-2 gap-4 border-t pt-7 t-border"
+          >
+            <button
+              type="button"
+              onClick={() => onGo(idx - 1)}
+              className="group flex min-w-0 flex-col items-start gap-1.5 rounded-2xl px-4 py-4 text-left transition-colors hover:bg-[var(--surface-2)]"
             >
-              <button
-                type="button"
-                onClick={() => onGo(idx - 1)}
-                className="group flex min-w-0 flex-1 flex-col items-start gap-1 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[var(--surface-2)]"
-              >
-                <span className="font-mono text-[10px] uppercase tracking-[0.2em] t-text3">← Projet précédent</span>
-                <span className="truncate font-display text-lg font-medium t-text2 transition-colors group-hover:t-accent">{prevP.title}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onGo(idx + 1)}
-                className="group flex min-w-0 flex-1 flex-col items-end gap-1 rounded-xl px-3 py-3 text-right transition-colors hover:bg-[var(--surface-2)]"
-              >
-                <span className="font-mono text-[10px] uppercase tracking-[0.2em] t-text3">Projet suivant →</span>
-                <span className="truncate font-display text-lg font-medium t-text2 transition-colors group-hover:t-accent">{nextP.title}</span>
-              </button>
-            </motion.div>
+              <span className="font-mono text-[10px] uppercase tracking-[0.2em] t-text3 transition-colors group-hover:t-accent">← Précédent</span>
+              <span className="truncate font-display text-2xl font-medium t-text2 transition-all duration-300 group-hover:translate-x-1 group-hover:t-accent">{prevP.title}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onGo(idx + 1)}
+              className="group flex min-w-0 flex-col items-end gap-1.5 rounded-2xl px-4 py-4 text-right transition-colors hover:bg-[var(--surface-2)]"
+            >
+              <span className="font-mono text-[10px] uppercase tracking-[0.2em] t-text3 transition-colors group-hover:t-accent">Suivant →</span>
+              <span className="truncate font-display text-2xl font-medium t-text2 transition-all duration-300 group-hover:-translate-x-1 group-hover:t-accent">{nextP.title}</span>
+            </button>
           </motion.div>
         </div>
       </div>
